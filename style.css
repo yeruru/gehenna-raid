@@ -100,7 +100,7 @@ h2{ font-size:15px; margin:0; color:var(--accent); font-weight:600; }
 .btn.ghost.danger:hover{ border-color:transparent; }
 .btn.danger.armed{ background:var(--danger); border-color:var(--danger); color:#fff; }
 
-input[type="date"], input[type="text"], input[type="search"]{
+input[type="date"], input[type="text"], input[type="search"], input[type="password"]{
   height:38px; padding:0 12px;
   background:var(--panel); border:1px solid var(--line); border-radius:8px;
   font-size:14px; min-width:0;
@@ -169,7 +169,7 @@ input:focus{ border-color:var(--accent); outline:none; }
 }
 .filter button[aria-pressed="true"]{ background:var(--accent-soft); border-color:var(--accent); color:var(--accent); font-weight:600; }
 .bar-line{
-  display:grid; grid-template-columns:92px 1fr 40px;
+  display:grid; grid-template-columns:78px 1fr 40px;   /* 한글 두 글자 · 영문 일곱 글자가 들어갈 만큼 */
   align-items:center; gap:8px; padding:4px 0;
 }
 .bar-name{ color:var(--muted); font-size:12px; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -273,7 +273,7 @@ footer{ text-align:center; color:var(--muted); font-size:12px; margin-top:20px; 
   .field{ grid-template-columns:1fr; gap:6px; }
   .field.top .field-label{ padding-top:0; }
   .day-table{ grid-template-columns:1fr; }
-  .bar-line{ grid-template-columns:72px 1fr 34px; }
+  .bar-line{ grid-template-columns:50px 1fr 34px; }   /* 모바일은 순위 숫자를 숨기므로 더 좁게 */
   input[type="date"]{ width:100%; }
   .member-grid{ grid-template-columns:repeat(3, 1fr); }
   .roster li{ grid-template-columns:26px 1fr auto; }
@@ -387,11 +387,42 @@ footer{ text-align:center; color:var(--muted); font-size:12px; margin-top:20px; 
 
 /* 지금 선택된 참여자 목록 (짱구, 짱아, 유리) */
 .picked-list{
+  display:flex; align-items:flex-start; gap:10px;
   margin:8px 0 0;
   padding:9px 11px;
   border:1px solid var(--line); border-radius:8px;
   background:var(--soft);
   font-size:13px; line-height:1.6; color:var(--text);
-  word-break:keep-all; overflow-wrap:anywhere;
-  user-select:all;
 }
+.picked-names{
+  flex:1; min-width:0;
+  word-break:keep-all; overflow-wrap:anywhere;
+  user-select:all;                 /* 눌러서 직접 긁어 복사할 수도 있게 */
+}
+/* 오른쪽 끝 복사 버튼 : 목록이 길어져도 맨 위 오른쪽에 붙어 있는다 */
+.picked-copy{
+  flex:none; align-self:flex-start;
+  height:26px; padding:0 10px;
+  background:var(--panel); border:1px solid var(--line); border-radius:7px;
+  font-size:12px; font-weight:600; color:var(--muted);
+  white-space:nowrap;
+  transition:border-color .15s, color .15s, background .15s;
+}
+.picked-copy:hover{ border-color:var(--accent); color:var(--accent); }
+.picked-copy.done{ background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
+
+/* 잠금 화면 (공대 기록 · 클랜원 관리) · 가운데로 모아 놓은 작은 카드 */
+#lockGate section{ max-width:400px; margin-left:auto; margin-right:auto; text-align:center; }
+#lockGate .sec-head{ justify-content:center; margin-bottom:10px; }
+.lock-desc{ margin:0 0 18px; font-size:13.5px; color:var(--muted); line-height:1.65; }
+.lock-form{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+.lock-form input{
+  flex:1 1 180px; max-width:220px;
+  height:44px; border-radius:12px;          /* 약간 둥글게 */
+  text-align:center; font-size:17px;
+  letter-spacing:.4em; text-indent:.4em;    /* 가운데 정렬이 자간 때문에 밀리는 것 보정 */
+}
+/* 안내 문구까지 자간이 벌어지면 읽기 나빠서 원래대로 */
+.lock-form input::placeholder{ letter-spacing:normal; text-indent:0; font-size:14px; }
+.lock-form .btn{ height:44px; border-radius:12px; padding:0 22px; }
+#lockGate .form-msg{ margin-top:12px; }
