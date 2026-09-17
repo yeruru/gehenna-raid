@@ -371,6 +371,10 @@ footer{ text-align:center; color:var(--muted); font-size:12px; margin-top:20px; 
    클랜원들은 보기만 하면 되고, 좁은 화면에서 줄바꿈되어 지저분해지기 때문.
    단 '불러오기 전으로 되돌리기' 는 실수를 되돌리는 버튼이라 남겨 둔다 */
 @media (max-width:640px){
+  /* 탭이 4개라 좁은 화면에서는 글자가 두 줄로 깨진다 · 폭을 나눠 쓰고 글자를 줄인다 */
+  .tabs{ display:flex; width:100%; gap:2px; }
+  .tabs button{ flex:1 1 0; min-width:0; padding:0 4px; font-size:12.5px; white-space:nowrap; }
+
   .file-bar .backup-state,
   .file-bar #btnFolder,
   .file-bar #btnExportSite,
@@ -426,3 +430,36 @@ footer{ text-align:center; color:var(--muted); font-size:12px; margin-top:20px; 
 .lock-form input::placeholder{ letter-spacing:normal; text-indent:0; font-size:14px; }
 .lock-form .btn{ height:44px; border-radius:12px; padding:0 22px; }
 #lockGate .form-msg{ margin-top:12px; }
+
+/* ---------- 명단 뽑기 ---------- */
+.extract-drop{
+  display:flex; flex-direction:column; align-items:center; gap:14px;
+  padding:26px 16px;
+  border:2px dashed var(--line); border-radius:12px;
+  background:var(--soft); text-align:center;
+  transition:border-color .15s, background .15s;
+}
+.extract-drop.dragging{ border-color:var(--accent); background:var(--accent-soft); }
+.extract-guide{ margin:0; font-size:14px; font-weight:600; line-height:1.6; }
+.extract-guide small{ display:block; margin-top:6px; font-size:12.5px; font-weight:400; color:var(--muted); }
+
+.extract-when{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:14px 0 0; padding-bottom:10px;}
+.extract-when .field-label{ flex:none; }
+.extract-when input[type="date"]{ width:auto; flex:1 1 150px; max-width:190px; }
+
+/* 사진 인식 진행바 · 결과 요약이 업로드 칸에 바로 붙지 않도록 띄운다 */
+#extractPanel:not(:empty){ padding-top:18px; }
+.extract-pick{ margin-top:18px; padding-top:18px; border-top:1px solid var(--line); }
+.extract-pick .picker-head{ margin-bottom:8px; }
+
+.extract-result{
+  margin-top:18px; padding:14px;
+  border:1px solid var(--accent); border-radius:12px; background:var(--accent-soft);
+}
+.extract-when-label{ font-size:12.5px; font-weight:600; color:var(--accent); margin-bottom:8px; }
+.extract-names{
+  font-size:14px; line-height:1.7; color:var(--text);
+  word-break:keep-all; overflow-wrap:anywhere; user-select:all;
+}
+.extract-acts{ display:flex; gap:8px; margin-top:14px; }
+.extract-acts .btn{ flex:1; }

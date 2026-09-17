@@ -18,6 +18,7 @@
   <div class="topbar">
     <div class="tabs" role="tablist">
       <button type="button" role="tab" id="tabRate" data-view="rate" aria-controls="viewRate">참여율</button>
+      <button type="button" role="tab" id="tabExtract" data-view="extract" aria-controls="viewExtract">명단 뽑기</button>
       <button type="button" role="tab" id="tabRecord" data-view="record" aria-controls="viewRecord">공대 기록</button>
       <button type="button" role="tab" id="tabMembers" data-view="members" aria-controls="viewMembers">클랜원 관리</button>
     </div>
@@ -65,6 +66,53 @@
     </section>
   </div>
 
+  <!-- ================= 명단 뽑기 (잠금 없음 · 클랜원들이 쓰는 화면) ================= -->
+  <div id="viewExtract" role="tabpanel" aria-labelledby="tabExtract" hidden>
+    <section aria-labelledby="extractTitle">
+      <div class="sec-head">
+        <h2 id="extractTitle">명단 뽑기</h2>
+        <span class="sec-desc">공대 스크린샷에서 이름만 읽어 드립니다 · 기록은 저장되지 않습니다</span>
+      </div>
+
+      <div class="extract-when" id="extractWhen">
+        <span class="field-label">언제 공대</span>
+        <input type="date" id="extractDate" aria-label="공대 날짜">
+        <div class="seg" id="extractTimeSeg" role="group" aria-label="공대 시간">
+          <button type="button" data-v="1시">1시</button>
+          <button type="button" data-v="9시">9시</button>
+        </div>
+      </div>
+
+      <div class="extract-drop" id="extractDrop">
+        <p class="extract-guide">
+          공대 명단 화면을 캡처해서 올려 주세요
+          <small>Ctrl+V 로 붙여넣거나 사진을 끌어다 놓아도 됩니다 · 여러 장 가능</small>
+        </p>
+        <button type="button" class="btn primary" id="btnExtractPick">스크린샷 올리기</button>
+        <input type="file" id="extractFile" accept="image/*" multiple hidden>
+      </div>
+
+      <div id="extractPanel"></div>
+
+      <div id="extractResult"></div>
+
+      <div class="extract-pick">
+        <div class="picker-head">
+          <span>선택 <b id="extractCount">0</b> / <span id="extractTotal">0</span>명 · 눌러서 빼거나 더할 수 있습니다</span>
+          <span class="tools">
+            <button type="button" class="btn ghost sm" id="btnExtractNone">선택 해제</button>
+          </span>
+        </div>
+        <div class="pick-search">
+          <input type="search" id="extractSearch" placeholder="이름 검색 · 초성도 됩니다 (예: ㅉㄱ)" autocomplete="off" aria-label="클랜원 이름 검색">
+          <button type="button" class="btn sm" id="btnExtractClearSearch" hidden>전체 보기</button>
+        </div>
+        <div class="member-grid" id="extractGrid"></div>
+      </div>
+
+    </section>
+  </div>
+
   <!-- ================= 공대 기록 ================= -->
   <div id="viewRecord" role="tabpanel" aria-labelledby="tabRecord" hidden>
 
@@ -107,12 +155,6 @@
               </span>
             </div>
             <div class="picked-list" id="pickedList" hidden></div>
-            <div class="ocr-bar" id="ocrBar">
-              <button type="button" class="btn sm" id="btnOcr">스크린샷으로 선택</button>
-              <span class="ocr-tip">공대 명단 스크린샷을 고르거나 Ctrl+V로 붙여넣기 · 여러 장 가능</span>
-              <input type="file" id="ocrFile" accept="image/*" multiple hidden>
-            </div>
-            <div class="ocr-panel" id="ocrPanel" hidden></div>
             <div class="pick-search">
               <input type="search" id="pickSearch" placeholder="이름 검색 · 초성도 됩니다 (예: ㅉㄱ) · 쉼표로 여러 명 (짱구,짱아,유리)" autocomplete="off" aria-label="참여자 이름 검색">
               <button type="button" class="btn sm" id="btnClearSearch" hidden>전체 보기</button>
@@ -211,13 +253,12 @@
   try{ unlocked = localStorage.getItem(UNLOCK_KEY) === PASS_HASH; }catch(e){}
   const isLocked = v => LOCKED_VIEWS.indexOf(v) >= 0 && !unlocked;
 
-  const VIEWS = ["rate", "record", "members"];
+  const VIEWS = ["rate", "extract", "record", "members"];
   // 주소 끝의 #rate · #record · #members 로 탭이 정해진다. 그냥 들어오면 참여율부터
   let view = VIEWS.indexOf((location.hash || "").slice(1)) >= 0 ? location.hash.slice(1) : "rate";
   let rateQuery = "";
   let renaming = null;
   let aliasEditing = null;
-  let ocrState = null;   // 스크린샷 인식 결과
   let rosterQuery = "";
   const openKeys = new Set();
 
@@ -422,8 +463,8 @@
   /* 참여율 탭은 클랜원들이 들어와서 보는 화면이라
      백업 · 내보내기 · 불러오기 버튼을 감춘다 ('잠금' 은 다시 잠글 수 있어야 하므로 남긴다) */
   function renderFileBar(){
-    // 참여율 탭이 아니고, 잠금까지 풀린 상태에서만 보여 준다
-    const show = view !== "rate" && unlocked;
+    // 잠긴 화면(공대 기록 · 클랜원 관리)을 열었을 때만 · 참여율과 명단 뽑기에서는 감춘다
+    const show = (view === "record" || view === "members") && unlocked;
     $("backupState").hidden = !show;
     $("btnExportSite").hidden = !show;
     $("btnExport").hidden = !show;
@@ -468,6 +509,7 @@
       if(isLocked(view)) return;          // 잠금 화면이 대신 떠 있음
       if(view === "record") renderForm();
       else if(view === "members") renderRoster();
+      else if(view === "extract") renderExtract();
       else renderBars();
     });
   });
@@ -607,50 +649,10 @@
   }
 
   /* ---------- 스크린샷으로 참여자 선택 (ocr.js) ---------- */
-  async function runOcr(fileList){
-    const images = [...fileList].filter(f => f && f.type && f.type.indexOf("image/") === 0);
-    if(!images.length){ toast("이미지 파일을 골라주세요"); return; }
-    if(!window.RaidOCR){ toast("ocr.js 파일을 찾지 못했습니다. index.html 과 같은 폴더에 있어야 합니다."); return; }
-    if(ocrState && ocrState.running) return;
-
-    /* 이미 읽어 둔 결과가 있으면 지우지 않고 이어서 쌓는다.
-       사진을 여러 번 나눠 넣어도 앞 사진에서 잡힌 사람은 그대로 남고
-       새 사진에서 새로 잡힌 사람만 더해진다 ('닫기' 를 누르면 처음부터 다시) */
-    const kept = (ocrState && Array.isArray(ocrState.items)) ? ocrState.items : [];
-    const photoBase = kept.reduce((m, it) => Math.max(m, it.photo || 0), 0);
-    ocrState = {
-      running: true, text: "준비 중…", done: 0, total: 0,
-      items: kept,
-      cells: (ocrState && ocrState.cells) || 0
-    };
-    renderOcr();
-    try{
-      for(let i = 0; i < images.length; i++){
-        const r = await RaidOCR.read(images[i], {
-          members: data.members,
-          aliases: data.aliases,
-          onProgress: p => {
-            ocrState.text = (images.length > 1 ? "사진 " + (i + 1) + " / " + images.length + " · " : "") + p.text;
-            ocrState.done = p.done || 0;
-            ocrState.total = p.total || 0;
-            renderOcrProgress();
-          }
-        });
-        ocrState.cells += r.cells;
-        r.items.forEach(it => ocrState.items.push(Object.assign(it, { photo: photoBase + i + 1 })));
-      }
-    }catch(err){
-      ocrState.error = (err && err.message) || "사진을 읽지 못했습니다";
-    }
-    finalizeOcr();
-    ocrState.running = false;
-    renderOcr();
-  }
-
   /* 사진을 더 읽을 때마다 전체를 다시 훑어 중복을 가려낸다.
      이미 사람이 손댄 항목(선택 해제 · 직접 고른 이름)은 그대로 둔다 */
-  function finalizeOcr(){
-    const items = ocrState.items || [];
+  function finalizeOcr(state){
+    const items = state.items || [];
     // 중복 판정 전 상태를 기억해 두고, 매번 거기서부터 다시 계산한다
     items.forEach(it => { if(it.baseStatus === undefined) it.baseStatus = it.status; });
     items.forEach(it => { it.status = it.baseStatus; });
@@ -672,23 +674,6 @@
     });
   }
 
-  function renderOcrProgress(){
-    const t = $("ocrProgressText"), b = $("ocrProgressBar");
-    if(!t || !ocrState) return;
-    t.textContent = ocrState.text;
-    b.style.width = ocrState.total ? Math.round(ocrState.done / ocrState.total * 100) + "%" : "8%";
-  }
-
-  function ocrChosen(){
-    const chosen = new Set();
-    (ocrState.items || []).forEach(it => {
-      if(it.status === "dup") return;
-      if(it.status === "auto"){ if(it.include) chosen.add(it.member); }
-      else if(it.choice) chosen.add(it.choice);
-    });
-    return chosen;
-  }
-
   function memberSelect(it, onChange){
     const sel = el("select", "ocr-select");
     sel.setAttribute("aria-label", "'" + (it.read || it.raw) + "' 에 해당하는 클랜원");
@@ -703,159 +688,6 @@
     });
     sel.addEventListener("change", () => { it.choice = sel.value; onChange(); });
     return sel;
-  }
-
-  function renderOcr(){
-    const panel = $("ocrPanel");
-    panel.textContent = "";
-    panel.hidden = !ocrState;
-    $("btnOcr").disabled = !!(ocrState && ocrState.running);
-    if(!ocrState) return;
-
-    const head = el("div", "ocr-head");
-    head.appendChild(el("strong", "", "스크린샷 인식"));
-    if(!ocrState.running){
-      const close = el("button", "btn ghost sm", "닫기");
-      close.type = "button";
-      close.addEventListener("click", () => { ocrState = null; renderOcr(); });
-      head.appendChild(close);
-    }
-    panel.appendChild(head);
-
-    if(ocrState.running){
-      const prog = el("div", "ocr-progress");
-      const track = el("div", "ocr-track");
-      const bar = el("div", "ocr-bar-fill");
-      bar.id = "ocrProgressBar";
-      track.appendChild(bar);
-      const text = el("div", "ocr-progress-text");
-      text.id = "ocrProgressText";
-      prog.append(track, text);
-      panel.appendChild(prog);
-      renderOcrProgress();
-      return;
-    }
-
-    if(ocrState.error){
-      panel.appendChild(el("p", "ocr-msg error", ocrState.error));
-      // 앞 사진에서 읽어 둔 결과가 있으면 지우지 않고 계속 보여 준다
-      if(!ocrState.items || !ocrState.items.length) return;
-    }
-    if(!ocrState.cells){
-      panel.appendChild(el("p", "ocr-msg error", "이름 위치를 찾지 못했습니다. 'Lv. 숫자'가 보이는 공대 명단 화면인지 확인하세요."));
-      return;
-    }
-
-    const autos = ocrState.items.filter(it => it.status === "auto");
-    const checks = ocrState.items.filter(it => it.status === "check");
-    const unknowns = ocrState.items.filter(it => it.status === "unknown");
-    const dups = ocrState.items.filter(it => it.status === "dup");
-
-    const photos = ocrState.items.reduce((m, it) => Math.max(m, it.photo || 0), 0);
-    panel.appendChild(el("p", "ocr-summary",
-      (photos > 1 ? "사진 " + photos + "장 · " : "") +
-      "이름 " + ocrState.cells + "칸 읽음 · 자동 선택 " + autos.length + "명 · 확인 필요 " + checks.length + "명 · 못 찾음 " + unknowns.length + "칸" +
-      (dups.length ? " · 중복 " + dups.length + "칸 제외" : "")));
-
-    if(form.picked.size){
-      panel.appendChild(el("p", "ocr-keep",
-        "이미 선택해 둔 참여자 " + form.picked.size + "명은 그대로 두고, 여기서 고른 사람이 더해집니다."));
-    }
-
-    const refreshFoot = () => {
-      const n = ocrChosen().size;
-      $("btnOcrApply").textContent = "참여자에 반영 (" + n + "명)";
-      $("btnOcrApply").disabled = !n;
-    };
-
-    if(autos.length){
-      const g = el("div", "ocr-group");
-      g.appendChild(el("div", "ocr-group-title", "자동 선택 · 잘못 잡힌 사람은 눌러서 빼세요"));
-      const chips = el("div", "ocr-chips");
-      autos.forEach(it => {
-        const b = el("button", "ocr-chip", it.member);
-        b.type = "button";
-        b.title = "읽은 글자: " + it.read;
-        b.setAttribute("aria-pressed", String(it.include));
-        b.addEventListener("click", () => {
-          it.include = !it.include;
-          b.setAttribute("aria-pressed", String(it.include));
-          refreshFoot();
-        });
-        chips.appendChild(b);
-      });
-      g.appendChild(chips);
-      panel.appendChild(g);
-    }
-
-    const rowGroup = (list, title, isUnknown) => {
-      if(!list.length) return;
-      const g = el("div", "ocr-group" + (isUnknown ? " unknown" : " check"));
-      g.appendChild(el("div", "ocr-group-title", title));
-      list.forEach(it => {
-        const row = el("div", "ocr-row");
-        const img = el("img", "ocr-crop");
-        img.src = it.image;
-        img.alt = "사진 속 이름 칸";
-        const read = el("div", "ocr-read");
-        read.appendChild(el("span", "", "읽은 글자 "));
-        read.appendChild(el("b", "", it.read || it.raw || "(읽지 못함)"));
-        if(it.duplicate) read.appendChild(el("span", "ocr-dup", "같은 사람이 또 있음"));
-        const pick = el("div", "ocr-pick");
-        const remember = el("label", "ocr-remember");
-        const cb = el("input");
-        cb.type = "checkbox";
-        cb.checked = it.remember;
-        cb.addEventListener("change", () => { it.remember = cb.checked; });
-        const rememberText = el("span");
-        remember.append(cb, rememberText);
-        const updateRemember = () => {
-          const can = isUnknown && it.choice && it.read && it.read.length >= 2 && !data.members.includes(it.read);
-          remember.hidden = !can;
-          if(can) rememberText.textContent = "'" + it.read + "' 를 " + it.choice + " 의 게임 닉네임으로 기억";
-        };
-        pick.appendChild(memberSelect(it, () => { updateRemember(); refreshFoot(); }));
-        pick.appendChild(remember);
-        updateRemember();
-        row.append(img, read, pick);
-        g.appendChild(row);
-      });
-      panel.appendChild(g);
-    };
-    rowGroup(checks, "확인 필요 · 비슷한 이름을 골라뒀습니다. 사진과 맞는지 확인하세요", false);
-    rowGroup(unknowns, "못 찾음 · 필요하면 직접 고르세요", true);
-
-    const foot = el("div", "ocr-foot");
-    const again = el("button", "btn sm", "사진 더 넣기");
-    again.type = "button";
-    again.addEventListener("click", () => $("ocrFile").click());
-    const apply = el("button", "btn primary sm");
-    apply.type = "button";
-    apply.id = "btnOcrApply";
-    apply.addEventListener("click", applyOcr);
-    foot.append(again, apply);
-    panel.appendChild(foot);
-    refreshFoot();
-  }
-
-  function applyOcr(){
-    if(!ocrState || ocrState.running) return;
-    const chosen = ocrChosen();
-    let learned = [];
-    ocrState.items.forEach(it => {
-      if(it.status === "unknown" && it.choice && it.remember && it.read && it.read.length >= 2 && !data.members.includes(it.read)){
-        data.aliases[it.read.toLowerCase()] = it.choice;
-        learned.push(it.read + "→" + it.choice);
-      }
-    });
-    const before = form.picked.size;
-    chosen.forEach(n => form.picked.add(n));
-    if(learned.length) persist();
-    ocrState = null;
-    renderOcr();
-    renderForm();
-    toast("스크린샷에서 " + chosen.size + "명 반영 (새로 선택 " + (form.picked.size - before) + "명)" +
-      (learned.length ? " · 닉네임 기억: " + learned.join(", ") : ""));
   }
 
   /* 클립보드 복사 : https 가 아닌 곳(파일로 직접 열기 등)에서는 옛 방식으로 대신 복사 */
@@ -903,6 +735,230 @@
       setTimeout(() => { copy.textContent = "복사"; copy.classList.remove("done"); }, 1600);
     });
     box.appendChild(copy);
+  }
+
+  /* ---------- 명단 뽑기 (잠금 없음) ----------
+     클랜원들이 공대 스크린샷을 올려 이름 목록만 뽑아 가는 화면.
+     기록을 저장하지 않으므로 잠그지 않는다. 뽑은 목록은 복사하거나 공유(카톡 등)로 보낸다.
+     스크린샷이 잘못 읽혔거나 빠진 사람이 있으면 아래 명단에서 직접 눌러 고칠 수 있다 */
+  let extractState = null;
+  let extractTime = "1시";
+  let extractDate = todayStr();
+  let extractPicked = new Set();
+  let extractQuery = "";
+
+  // 공유창(카톡 등)을 띄울 수 있는 브라우저인지 · 쓸 때마다 확인한다
+  const canShare = () => typeof navigator.share === "function";
+
+  async function shareText(text){
+    if(canShare()){
+      try{ await navigator.share({ text }); return "shared"; }
+      catch(e){ if(e && e.name === "AbortError") return "cancelled"; }
+    }
+    return (await copyText(text)) ? "copied" : "failed";
+  }
+
+  async function runExtract(fileList){
+    const images = [...fileList].filter(f => f && f.type && f.type.indexOf("image/") === 0);
+    if(!images.length){ toast("이미지 파일을 골라주세요"); return; }
+    if(!window.RaidOCR){ toast("ocr.js 파일을 찾지 못했습니다. index.html 과 같은 폴더에 있어야 합니다."); return; }
+    if(extractState && extractState.running) return;
+
+    const kept = (extractState && Array.isArray(extractState.items)) ? extractState.items : [];
+    const photoBase = kept.reduce((m, it) => Math.max(m, it.photo || 0), 0);
+    extractState = {
+      running: true, text: "준비 중…", done: 0, total: 0,
+      items: kept, cells: (extractState && extractState.cells) || 0
+    };
+    renderExtract();
+    try{
+      for(let i = 0; i < images.length; i++){
+        const r = await RaidOCR.read(images[i], {
+          members: data.members,
+          aliases: data.aliases,
+          onProgress: p => {
+            extractState.text = (images.length > 1 ? "사진 " + (i + 1) + " / " + images.length + " · " : "") + p.text;
+            extractState.done = p.done || 0;
+            extractState.total = p.total || 0;
+            renderExtractProgress();
+          }
+        });
+        extractState.cells += r.cells;
+        r.items.forEach(it => extractState.items.push(Object.assign(it, { photo: photoBase + i + 1 })));
+      }
+    }catch(err){
+      extractState.error = (err && err.message) || "사진을 읽지 못했습니다";
+    }
+    finalizeOcr(extractState);
+    // 인식된 사람을 선택에 더한다 (직접 골라 둔 사람은 그대로 둔다)
+    (extractState.items || []).forEach(it => {
+      if(it.status === "dup") return;
+      const name = it.status === "auto" ? it.member : it.choice;
+      if(name) extractPicked.add(name);
+    });
+    extractState.running = false;
+    renderExtract();
+  }
+
+  // 선택된 이름들 (명단 순서대로)
+  const extractNames = () => data.members.filter(m => extractPicked.has(m));
+
+  function extractMessage(){
+    const names = extractNames();
+    return shortDate(extractDate) + " " + extractTime + " (" + names.length + "명)\n" + names.join(", ");
+  }
+
+  function renderExtractProgress(){
+    const t = $("extractProgressText"), b = $("extractProgressBar");
+    if(!t || !extractState) return;
+    t.textContent = extractState.text;
+    b.style.width = extractState.total ? Math.round(extractState.done / extractState.total * 100) + "%" : "8%";
+  }
+
+  /* 사진 인식 진행 · 결과 요약 · 확인이 필요한 칸 */
+  function renderExtractPanel(){
+    const panel = $("extractPanel");
+    panel.textContent = "";
+    $("btnExtractPick").disabled = !!(extractState && extractState.running);
+    if(!extractState) return;
+
+    if(extractState.running){
+      const prog = el("div", "ocr-progress");
+      const track = el("div", "ocr-track");
+      const bar = el("div", "ocr-bar-fill");
+      bar.id = "extractProgressBar";
+      track.appendChild(bar);
+      const text = el("div", "ocr-progress-text");
+      text.id = "extractProgressText";
+      prog.append(track, text);
+      panel.appendChild(prog);
+      renderExtractProgress();
+      return;
+    }
+
+    if(extractState.error) panel.appendChild(el("p", "ocr-msg error", extractState.error));
+    if(!extractState.cells){
+      if(!extractState.error){
+        panel.appendChild(el("p", "ocr-msg error", "이름 위치를 찾지 못했습니다. 'Lv. 숫자' 가 보이는 공대 명단 화면인지 확인하세요."));
+      }
+      return;
+    }
+
+    const checks = extractState.items.filter(it => it.status === "check");
+    const unknowns = extractState.items.filter(it => it.status === "unknown");
+    const photos = extractState.items.reduce((m, it) => Math.max(m, it.photo || 0), 0);
+
+    panel.appendChild(el("p", "ocr-summary",
+      (photos > 1 ? "사진 " + photos + "장 · " : "") + "이름 " + extractState.cells + "칸 읽음" +
+      (unknowns.length ? " · 못 찾음 " + unknowns.length + "칸" : "")));
+
+    const rows = (list, title) => {
+      if(!list.length) return;
+      const g = el("div", "ocr-group check");
+      g.appendChild(el("div", "ocr-group-title", title));
+      list.forEach(it => {
+        const row = el("div", "ocr-row");
+        const img = el("img", "ocr-crop");
+        img.src = it.image;
+        img.alt = "사진 속 이름 칸";
+        const read = el("div", "ocr-read");
+        read.appendChild(el("span", "", "읽은 글자 "));
+        read.appendChild(el("b", "", it.read || it.raw || "(읽지 못함)"));
+        const pick = el("div", "ocr-pick");
+        const before = it.choice;                     // 바꾸기 전에 고르던 사람
+        pick.appendChild(memberSelect(it, () => {
+          if(before) extractPicked.delete(before);
+          if(it.choice) extractPicked.add(it.choice);
+          renderExtract();
+        }));
+        row.append(img, read, pick);
+        g.appendChild(row);
+      });
+      panel.appendChild(g);
+    };
+    rows(checks, "확인 필요 · 비슷한 이름을 골라뒀습니다. 사진과 맞는지 봐 주세요");
+    rows(unknowns, "못 찾음 · 아는 사람이면 직접 골라 주세요");
+
+    const foot = el("div", "ocr-foot");
+    const more = el("button", "btn sm", "사진 더 넣기");
+    more.type = "button";
+    more.addEventListener("click", () => $("extractFile").click());
+    const reset = el("button", "btn ghost sm", "사진 결과 지우기");
+    reset.type = "button";
+    reset.addEventListener("click", () => { extractState = null; renderExtract(); });
+    foot.append(more, reset);
+    panel.appendChild(foot);
+  }
+
+  /* 클랜원 명단 · 눌러서 직접 빼거나 더한다 (공대 기록 입력과 같은 방식) */
+  function renderExtractGrid(){
+    $("extractCount").textContent = extractPicked.size;
+    $("extractTotal").textContent = data.members.length;
+
+    const grid = $("extractGrid");
+    grid.textContent = "";
+    const q = extractQuery.trim();
+    let shown = 0;
+    data.members.forEach(name => {
+      const b = el("button", "pick", name);
+      b.type = "button";
+      b.title = name;
+      b.dataset.name = name;
+      b.setAttribute("aria-pressed", String(extractPicked.has(name)));
+      b.hidden = !nameMatches(name, q);
+      if(!b.hidden) shown++;
+      b.addEventListener("click", () => {
+        extractPicked.has(name) ? extractPicked.delete(name) : extractPicked.add(name);
+        renderExtract();
+      });
+      grid.appendChild(b);
+    });
+    $("btnExtractClearSearch").hidden = !q;
+    if(q && !shown) grid.appendChild(el("p", "empty", "검색 결과가 없습니다"));
+  }
+
+  /* 뽑힌 이름 목록 + 복사 · 공유 */
+  function renderExtractResult(){
+    const box = $("extractResult");
+    box.textContent = "";
+    const names = extractNames();
+    if(!names.length) return;
+
+    const card = el("div", "extract-result");
+    card.appendChild(el("div", "extract-when-label", shortDate(extractDate) + " " + extractTime + " · " + names.length + "명"));
+    card.appendChild(el("div", "extract-names", names.join(", ")));
+
+    const acts = el("div", "extract-acts");
+    const copy = el("button", "btn", "복사");
+    copy.type = "button";
+    copy.addEventListener("click", async () => {
+      const ok = await copyText(extractMessage());
+      copy.textContent = ok ? "복사됨" : "실패";
+      toast(ok ? names.length + "명 복사됨 · 카톡에 붙여넣으세요" : "복사하지 못했습니다. 직접 긁어서 복사해 주세요.");
+      setTimeout(() => { copy.textContent = "복사"; }, 1600);
+    });
+    acts.appendChild(copy);
+
+    if(canShare()){
+      const share = el("button", "btn primary", "공유하기");
+      share.type = "button";
+      share.addEventListener("click", async () => {
+        const r = await shareText(extractMessage());
+        if(r === "copied") toast("공유가 안 되는 브라우저라 복사했습니다");
+        else if(r === "failed") toast("공유하지 못했습니다");
+      });
+      acts.appendChild(share);
+    }
+    card.appendChild(acts);
+    box.appendChild(card);
+  }
+
+  function renderExtract(){
+    $("extractDate").value = extractDate;
+    setPressed("extractTimeSeg", extractTime);
+    renderExtractPanel();
+    renderExtractGrid();
+    renderExtractResult();
   }
 
   function renderFormMeta(){
@@ -1342,6 +1398,7 @@
     renderBars();
     renderDays();
     renderRoster();
+    renderExtract();
   }
 
   /* ---------- JSON 내보내기 · 불러오기 ---------- */
@@ -1399,7 +1456,7 @@
 
   function renderFolder(){
     const btn = $("btnFolder");
-    if(!canPickFolder || view === "rate" || !unlocked){ btn.hidden = true; return; }
+    if(!canPickFolder || !unlocked || (view !== "record" && view !== "members")){ btn.hidden = true; return; }
     btn.hidden = false;
     btn.textContent = backupDir ? "저장 폴더: " + backupDir.name : "json 폴더 지정";
     btn.title = backupDir ? "눌러서 저장 폴더 변경" : "JSON 파일을 쌓아둘 json 폴더 선택";
@@ -1668,27 +1725,45 @@
   });
   $("btnClearSearch").addEventListener("click", clearPickSearch);
 
-  // 스크린샷 : 파일 선택 · 붙여넣기(Ctrl+V) · 끌어다 놓기
-  $("btnOcr").addEventListener("click", () => $("ocrFile").click());
-  $("ocrFile").addEventListener("change", e => { const f = [...e.target.files]; e.target.value = ""; runOcr(f); });
-  document.addEventListener("paste", e => {
-    if(view !== "record" || isLocked(view) || !e.clipboardData) return;
-    const files = [...e.clipboardData.files].filter(f => f.type.indexOf("image/") === 0);
-    if(!files.length) return;
-    e.preventDefault();
-    runOcr(files);
+  // 명단 뽑기 : 파일 선택 · 시간 선택 · 끌어다 놓기
+  $("btnExtractPick").addEventListener("click", () => $("extractFile").click());
+  $("extractFile").addEventListener("change", e => { const f = [...e.target.files]; e.target.value = ""; runExtract(f); });
+  $("extractDate").addEventListener("change", e => {
+    extractDate = e.target.value || todayStr();
+    renderExtract();
   });
-  const dropZone = $("pickGrid").closest(".field");
-  dropZone.addEventListener("dragover", e => {
-    if([...e.dataTransfer.items].some(i => i.kind === "file")){ e.preventDefault(); dropZone.classList.add("dragging"); }
+  $("extractSearch").addEventListener("input", e => { extractQuery = e.target.value; renderExtractGrid(); });
+  $("btnExtractClearSearch").addEventListener("click", () => {
+    extractQuery = "";
+    $("extractSearch").value = "";
+    renderExtractGrid();
+    $("extractSearch").focus();
   });
-  dropZone.addEventListener("dragleave", e => { if(!dropZone.contains(e.relatedTarget)) dropZone.classList.remove("dragging"); });
-  dropZone.addEventListener("drop", e => {
-    dropZone.classList.remove("dragging");
+  $("btnExtractNone").addEventListener("click", () => { extractPicked = new Set(); renderExtract(); });
+  $("extractTimeSeg").addEventListener("click", e => {
+    const b = e.target.closest("button"); if(!b) return;
+    extractTime = b.dataset.v;
+    renderExtract();
+  });
+  const extractDrop = $("extractDrop");
+  extractDrop.addEventListener("dragover", e => {
+    if([...e.dataTransfer.items].some(i => i.kind === "file")){ e.preventDefault(); extractDrop.classList.add("dragging"); }
+  });
+  extractDrop.addEventListener("dragleave", e => { if(!extractDrop.contains(e.relatedTarget)) extractDrop.classList.remove("dragging"); });
+  extractDrop.addEventListener("drop", e => {
+    extractDrop.classList.remove("dragging");
     const files = [...e.dataTransfer.files].filter(f => f.type.indexOf("image/") === 0);
     if(!files.length) return;
     e.preventDefault();
-    runOcr(files);
+    runExtract(files);
+  });
+
+  document.addEventListener("paste", e => {
+    if(view !== "extract" || !e.clipboardData) return;
+    const files = [...e.clipboardData.files].filter(f => f.type.indexOf("image/") === 0);
+    if(!files.length) return;
+    e.preventDefault();
+    runExtract(files);
   });
   $("btnSave").addEventListener("click", saveSession);
   $("btnCancel").addEventListener("click", () => { resetForm(); renderForm(); renderDays(); });
