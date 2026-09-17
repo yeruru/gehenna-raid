@@ -1,0 +1,1390 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>게헨나 공대 현황</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">We CLAN</div>
+    <h1>게헨나 공대 현황</h1>
+    <div class="sub" id="summarySub"></div>
+  </header>
+
+  <div class="topbar">
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" id="tabRecord" data-view="record" aria-controls="viewRecord">공대 기록</button>
+      <button type="button" role="tab" id="tabMembers" data-view="members" aria-controls="viewMembers">클랜원 관리</button>
+    </div>
+    <div class="file-bar">
+      <span class="backup-state" id="backupState"></span>
+      <button type="button" class="btn sm" id="btnUndoImport" hidden>불러오기 전으로 되돌리기</button>
+      <button type="button" class="btn sm" id="btnFolder" hidden>백업 폴더 지정</button>
+      <button type="button" class="btn sm" id="btnExport">JSON 내보내기</button>
+      <button type="button" class="btn sm" id="btnImport">JSON 불러오기</button>
+      <input type="file" id="fileImport" accept=".json,application/json" multiple hidden>
+    </div>
+  </div>
+
+  <!-- ================= 공대 기록 ================= -->
+  <div id="viewRecord" role="tabpanel" aria-labelledby="tabRecord">
+
+    <section aria-labelledby="formTitle">
+      <div class="sec-head">
+        <h2 id="formTitle">공대 기록 입력</h2>
+      </div>
+
+      <div class="form-grid">
+        <div id="editNotice" class="notice edit" hidden></div>
+
+        <div class="field">
+          <span class="field-label">날짜</span>
+          <div><input type="date" id="fDate" aria-label="날짜"></div>
+        </div>
+        <div class="field">
+          <span class="field-label">시간</span>
+          <div class="seg" id="fTime" role="group" aria-label="시간">
+            <button type="button" data-v="1시">1시</button>
+            <button type="button" data-v="9시">9시</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="field-label">공대</span>
+          <div class="seg" id="fRaid" role="group" aria-label="공대 종류">
+            <button type="button" data-v="게헨나">게헨나</button>
+            <button type="button" data-v="마슈미드">마슈미드</button>
+            <button type="button" data-v="에노크">에노크</button>
+          </div>
+        </div>
+
+        <div class="field top">
+          <span class="field-label">참여자</span>
+          <div>
+            <div class="picker-head">
+              <span>선택 <b id="pickCount">0</b> / <span id="memberTotal">0</span>명 · 참여한 클랜원을 누르세요</span>
+              <span class="tools">
+                <button type="button" class="btn ghost sm" id="btnAll">전체 선택</button>
+                <button type="button" class="btn ghost sm" id="btnNone">선택 해제</button>
+              </span>
+            </div>
+            <div class="ocr-bar" id="ocrBar">
+              <button type="button" class="btn sm" id="btnOcr">스크린샷으로 선택</button>
+              <span class="ocr-tip">공대 명단 스크린샷을 고르거나 Ctrl+V로 붙여넣기 · 여러 장 가능</span>
+              <input type="file" id="ocrFile" accept="image/*" multiple hidden>
+            </div>
+            <div class="ocr-panel" id="ocrPanel" hidden></div>
+            <div class="pick-search">
+              <input type="search" id="pickSearch" placeholder="이름 검색 · 초성도 됩니다 (예: ㅉㄱ) · Enter로 선택" autocomplete="off" aria-label="참여자 이름 검색">
+              <button type="button" class="btn sm" id="btnClearSearch" hidden>전체 보기</button>
+            </div>
+            <div class="pick-hint" id="pickHint" role="status"></div>
+            <div class="member-grid" id="pickGrid"></div>
+          </div>
+        </div>
+
+        <div id="dupNotice" class="notice" hidden></div>
+
+        <div class="form-foot">
+          <div class="preview-label" id="previewLabel"></div>
+          <div class="actions">
+            <button type="button" class="btn" id="btnCancel" hidden>수정 취소</button>
+            <button type="button" class="btn primary" id="btnSave">기록 저장</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="rateTitle">
+      <div class="sec-head">
+        <h2 id="rateTitle">참여율</h2>
+        <div class="filter" id="rateFilter" role="group" aria-label="참여율 기준">
+          <button type="button" data-v="all">전체</button>
+          <button type="button" data-v="게헨나">게헨나</button>
+          <button type="button" data-v="boss">마슈미드 · 에노크</button>
+        </div>
+      </div>
+      <div id="barChart"></div>
+    </section>
+
+    <section aria-labelledby="dayTitle">
+      <div class="sec-head">
+        <h2 id="dayTitle">일자별 참여 기록</h2>
+      </div>
+      <div id="dayList"></div>
+    </section>
+  </div>
+
+  <!-- ================= 클랜원 관리 ================= -->
+  <div id="viewMembers" role="tabpanel" aria-labelledby="tabMembers" hidden>
+
+    <section aria-labelledby="addTitle">
+      <div class="sec-head">
+        <h2 id="addTitle">클랜원 추가</h2>
+        <span class="sec-desc">여러 명은 쉼표로 구분해서 한 번에 추가</span>
+      </div>
+      <div class="add-member">
+        <input type="text" id="newName" placeholder="클랜원 이름" autocomplete="off" maxlength="200">
+        <button type="button" class="btn primary" id="btnAddMember">추가</button>
+      </div>
+      <div class="form-msg" id="addMsg" role="status"></div>
+    </section>
+
+    <section aria-labelledby="rosterTitle">
+      <div class="sec-head">
+        <h2 id="rosterTitle">클랜원 명단</h2>
+        <span class="roster-count">현재 <b id="rosterCount">0</b>명</span>
+      </div>
+      <div class="roster-tools">
+        <input type="search" id="rosterSearch" placeholder="이름 검색" autocomplete="off">
+      </div>
+      <ul class="roster" id="roster"></ul>
+
+      <div class="former" id="formerWrap" hidden>
+        <p class="former-title">뺀 클랜원 · 지난 공대 기록은 남아 있어서 다시 넣으면 참여율이 복구됩니다</p>
+        <div class="former-list" id="formerList"></div>
+      </div>
+    </section>
+  </div>
+
+  <footer>입력한 내용은 이 브라우저에 자동 보관됩니다 · 다른 기기로 옮기려면 JSON으로 내보내세요</footer>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="ocr.js"></script>
+<script>
+(function(){
+  const STORE_KEY = "gehenna-raid-v1";
+
+  /* ---------- 초기 데이터 (기존 대시보드 기록) ---------- */
+  const SEED = {
+    version: 2,
+    members: ["짱구","훈이","쵸파","훈이형","태","법","흰둥이","러브","말랑이","암","유리","뽕","검은사제","지뽕","짱아","칠복파","하늘","장","개꿀","앵이","헤티","띠용","아파","갱이","왕초","하준","마초","라라","이사","소다","유후","PERFECTBAEK","철수","엘지우승","액","뀨우","레나","까탈","액션가면","없다","Fresh","매드","루비","블랙","기","제니스","리사","판다","콘팡","대한"],
+    aliases: {"fury": "장"},
+    sessions: [
+      { date:"2026-09-02", time:"1시", raid:"게헨나", attendees:["훈이","없다","Fresh","루비","엘지우승","짱아","짱구","헤티","레나","훈이형","왕초","아파","판다","띠용","대한","태","말랑이","장","개꿀","쵸파","앵이","하준","러브","뀨우","갱이","법","지뽕","까탈","콘팡","액","기","하늘","액션가면","흰둥이","암","제니스","뽕"] },
+      { date:"2026-09-02", time:"9시", raid:"게헨나", attendees:["엘지우승","쵸파","마초","왕초","까탈","없다","판다","암","흰둥이","레나","루비","띠용","말랑이","러브","갱이","짱아","훈이형","앵이","기","짱구","리사","개꿀","아파","훈이","이사","장","제니스","액","액션가면","Fresh","헤티","유리","대한","뽕","지뽕","법","태","뀨우","블랙"] },
+      { date:"2026-09-03", time:"1시", raid:"게헨나", attendees:["법","대한","쵸파","하늘","짱구","루비","갱이","레나","헤티","띠용","훈이형","아파","없다","앵이","왕초","제니스","짱아","러브","훈이","기","장","판다","Fresh","개꿀","액션가면","액","콘팡","엘지우승","뀨우","뽕"] },
+      { date:"2026-09-03", time:"9시", raid:"게헨나", attendees:["법","태","까탈","기","유리","띠용","갱이","대한","루비","짱구","흰둥이","뽕","없다","판다","훈이형","앵이","아파","러브","쵸파","짱아","마초","액션가면","개꿀","레나","제니스","헤티","하늘","뀨우","장","지뽕","콘팡","왕초","훈이","Fresh"] },
+      { date:"2026-09-04", time:"1시", raid:"게헨나", attendees:["짱구","훈이","쵸파","훈이형","태","법","흰둥이","러브","말랑이","유리","뽕","검은사제","짱아","장","개꿀","앵이","헤티","띠용","아파","갱이","왕초","마초","엘지우승","액","뀨우","레나","액션가면","없다","Fresh","기","제니스","리사","판다","콘팡","대한"] },
+      { date:"2026-09-04", time:"9시", raid:"게헨나", attendees:["짱구","훈이","까탈","앵이","갱이","대한","아파","판다","이사","러브","엘지우승","없다","띠용","기","콘팡","루비","왕초","소다","짱아","마초","레나","뀨우","하늘","액","리사","제니스","헤티","장","쵸파","개꿀","뽕","법","유리","지뽕","검은사제","흰둥이","액션가면","Fresh","태","암"] },
+      { date:"2026-09-05", time:"1시", raid:"게헨나", attendees:["짱구","훈이","쵸파","훈이형","법","러브","검은사제","짱아","하늘","장","개꿀","앵이","헤티","띠용","아파","갱이","왕초","마초","소다","엘지우승","뀨우","레나","까탈","액션가면","없다","Fresh","블랙","기","리사","콘팡","대한"] },
+      { date:"2026-09-05", time:"9시", raid:"게헨나", attendees:["짱구","훈이","쵸파","훈이형","법","러브","말랑이","암","유리","뽕","지뽕","짱아","칠복파","하늘","장","개꿀","앵이","헤티","띠용","아파","갱이","왕초","마초","이사","엘지우승","액","뀨우","레나","까탈","액션가면","없다","Fresh","루비","기","제니스","리사","판다","콘팡","대한","철수"] },
+      { date:"2026-09-05", time:null, raid:"에노크/마슈미드", attendees:["짱구","훈이","쵸파","훈이형","태","법","러브","말랑이","유리","뽕","지뽕","짱아","하늘","장","개꿀","앵이","헤티","띠용","아파","갱이","왕초","마초","이사","엘지우승","뀨우","레나","까탈","액션가면","없다","Fresh","루비","기","리사","판다","콘팡","대한"] },
+      { date:"2026-09-06", time:"1시", raid:"게헨나", attendees:["짱구","훈이","쵸파","훈이형","태","법","흰둥이","러브","말랑이","암","뽕","검은사제","짱아","장","개꿀","앵이","헤티","띠용","아파","갱이","마초","소다","엘지우승","액","뀨우","액션가면","없다","Fresh","루비","기","판다","콘팡","대한"] },
+      { date:"2026-09-07", time:"1시", raid:"게헨나", attendees:["훈이","쵸파","법","러브","말랑이","암","검은사제","짱아","하늘","장","개꿀","앵이","헤티","띠용","아파","갱이","왕초","이사","소다","엘지우승","액","뀨우","레나","까탈","액션가면","없다","Fresh","기","제니스","판다","콘팡","대한"] },
+      { date:"2026-09-07", time:"9시", raid:"게헨나", attendees:["짱구","훈이","쵸파","훈이형","법","러브","암","뽕","검은사제","짱아","장","개꿀","앵이","헤티","아파","갱이","왕초","마초","이사","소다","엘지우승","액","뀨우","레나","까탈","액션가면","없다","루비","기","리사","판다","콘팡","대한"] },
+      { date:"2026-09-08", time:"1시", raid:"게헨나", attendees:["훈이","대한","Fresh","기","엘지우승","왕초","아파","뀨우","러브","소다","레나","암","마초","개꿀","앵이","없다","헤티","말랑이","쵸파","법","짱아","하늘","콘팡","갱이","까탈","띠용","훈이형","검은사제","액션가면","흰둥이","장","리사"] },
+      { date:"2026-09-08", time:"9시", raid:"게헨나", attendees:["훈이","태","루비","대한","헤티","Fresh","제니스","없다","라라","이사","소다","개꿀","PERFECTBAEK","마초","말랑이","앵이","암","왕초","러브","법","쵸파","판다","레나","콘팡","기","리사","아파","갱이","짱아","뽕","검은사제","하늘","액션가면","훈이형","블랙","지뽕"] },
+      { date:"2026-09-09", time:"1시", raid:"게헨나", attendees:["훈이","하늘","기","띠용","개꿀","뀨우","아파","마초","말랑이","쵸파","판다","리사","헤티","러브","콘팡","뽕","엘지우승","짱아","제니스","암","훈이형","액","장","대한","왕초","법","지뽕","갱이","검은사제","레나","액션가면","앵이","짱구"] },
+      { date:"2026-09-09", time:"9시", raid:"게헨나", attendees:["훈이","액","헤티","기","갱이","아파","왕초","짱아","마초","뽕","소다","이사","훈이형","판다","짱구","뀨우","앵이","러브","라라","쵸파","루비","콘팡","레나","없다","까탈","액션가면","제니스","엘지우승","장","띠용","암","검은사제","법","태","개꿀","지뽕","말랑이","대한","리사"] },
+      { date:"2026-09-10", time:"1시", raid:"게헨나", attendees:["훈이","앵이","헤티","루비","쵸파","기","하늘","마초","개꿀","띠용","아파","없다","암","갱이","까탈","대한","말랑이","뽕","장","훈이형","뀨우","러브","엘지우승","법","라라","짱아","검은사제","짱구","액션가면","콘팡","리사"] },
+      { date:"2026-09-10", time:"9시", raid:"게헨나", attendees:["훈이","쵸파","훈이형","태","법","러브","말랑이","암","검은사제","지뽕","짱아","하늘","장","개꿀","앵이","헤티","띠용","아파","갱이","왕초","마초","라라","이사","소다","엘지우승","액","뀨우","레나","까탈","액션가면","없다","루비","제니스","리사","판다","콘팡","대한","짱구"] },
+      { date:"2026-09-11", time:"9시", raid:"게헨나", attendees:["짱아","루비","훈이","까탈","소다","헤티","기","쵸파","갱이","라라","태","엘지우승","아파","장","훈이형","없다","앵이","레나","러브","이사","리사","판다","암","마초","짱구","액션가면","개꿀","법","제니스","콘팡","지뽕","대한","검은사제","흰둥이","블랙","뽕","왕초"] },
+      { date:"2026-09-12", time:"1시", raid:"게헨나", attendees:["훈이","헤티","기","까탈","없다","말랑이","대한","왕초","개꿀","갱이","레나","아파","콘팡","쵸파","장","러브","띠용","앵이","훈이형","하늘","암","엘지우승","마초","뀨우","검은사제","블랙","법","뽕","리사","지뽕"] },
+      { date:"2026-09-12", time:"9시", raid:"게헨나", attendees:["훈이","까탈","루비","암","띠용","말랑이","레나","왕초","장","라라","검은사제","소다","엘지우승","러브","태","없다","이사","콘팡","마초","훈이형","쵸파","갱이","PERFECTBAEK","아파","짱아","뀨우","앵이","판다","법","기","리사","액","개꿀","제니스","짱구","흰둥이","대한"] },
+      { date:"2026-09-13", time:"1시", raid:"게헨나", attendees:["훈이","장","콘팡","대한","말랑이","마초","이사","까탈","라라","아파","러브","앵이","엘지우승","갱이","띠용","훈이형","헤티","없다","Fresh","레나","쵸파","기","검은사제","짱아","짱구","암","법","지뽕"] },
+      { date:"2026-09-13", time:"9시", raid:"게헨나", attendees:["훈이","장","콘팡","대한","말랑이","마초","이사","까탈","라라","아파","러브","앵이","엘지우승","갱이","띠용","훈이형","헤티","없다","Fresh","레나","쵸파","기","검은사제","짱아","짱구","암","법","지뽕","개꿀"] }
+    ]
+  };
+
+  /* ---------- 상태 ---------- */
+  let data;   // 아래 함수들이 모두 선언된 뒤 맨 끝에서 load()
+  const form = { date: todayStr(), time: "1시", raid: "게헨나", picked: new Set(), editKey: null };
+  let rateFilter = "all";
+  let view = location.hash === "#members" ? "members" : "record";
+  let renaming = null;
+  let aliasEditing = null;
+  let ocrState = null;   // 스크린샷 인식 결과
+  let rosterQuery = "";
+  const openKeys = new Set();
+
+  const $ = id => document.getElementById(id);
+  const el = (tag, cls, text) => {
+    const n = document.createElement(tag);
+    if(cls) n.className = cls;
+    if(text !== undefined) n.textContent = text;
+    return n;
+  };
+
+  function todayStr(){
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  }
+
+  function load(){
+    try{
+      const raw = localStorage.getItem(STORE_KEY);
+      if(raw){ const d = normalize(JSON.parse(raw)); if(d) return d; }
+    }catch(e){}
+    return normalize(JSON.parse(JSON.stringify(SEED)));
+  }
+  /* 백업 상태 : 마지막 JSON 내보내기 이후 변경 횟수 */
+  const META_KEY = "gehenna-raid-meta";
+  const PREV_KEY = "gehenna-raid-before-import";
+  let meta = { changes: 0, lastExport: null };
+  try{ Object.assign(meta, JSON.parse(localStorage.getItem(META_KEY) || "{}")); }catch(e){}
+  function saveMeta(){
+    try{ localStorage.setItem(META_KEY, JSON.stringify(meta)); }catch(e){}
+    renderBackup();
+  }
+  function renderBackup(){
+    const box = $("backupState");
+    if(!box) return;
+    const last = meta.lastExport ? new Date(meta.lastExport) : null;
+    const lastText = last ? (last.getMonth()+1) + "월 " + last.getDate() + "일 백업" : "아직 백업 안 함";
+    box.textContent = meta.changes ? lastText + " · 이후 변경 " + meta.changes + "건" : lastText;
+    box.classList.toggle("warn", meta.changes >= 5 || (!last && meta.changes > 0));
+  }
+
+  function persist(){
+    meta.changes++;
+    $("btnUndoImport").hidden = true;
+    saveMeta();
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify(data)); }
+    catch(e){ toast("브라우저에 저장하지 못했습니다. JSON으로 내보내 두세요."); }
+  }
+
+  /* 예전 이름 → 지금 이름 : version 2 보다 오래된 기록 · JSON 파일을 읽을 때 딱 한 번만 고침.
+     version 2 부터는 아래 표를 쓰지 않는다 ('이름 변경' 버튼이 실제 이름을 바꾸므로,
+     매번 적용하면 장 → 퓨리 로 바꿔도 새로고침할 때 되돌아가 버림) */
+  const DATA_VERSION = 2;
+  const LEGACY_RENAMES = { "퓨리": "장", "쇼우": "개꿀", "PERFECT": "PERFECTBAEK" };
+  const trimName = n => String(n == null ? "" : n).trim();
+  const renamerFor = ver => ver >= DATA_VERSION
+    ? trimName
+    : n => { const s = trimName(n); return LEGACY_RENAMES[s] || s; };
+
+  // JSON 형식 확인 · 정리 (명단에서 뺀 사람의 지난 기록은 그대로 둠)
+  function normalize(d){
+    if(!d || !Array.isArray(d.members) || !Array.isArray(d.sessions)) return null;
+    const ver = Number(d.version) || 1;
+    const rename = renamerFor(ver);
+    const members = [...new Set(d.members.map(rename).filter(Boolean))];
+    const sessions = d.sessions
+      .filter(s => s && /^\d{4}-\d{2}-\d{2}$/.test(s.date) && Array.isArray(s.attendees))
+      .map(s => ({
+        date: s.date,
+        time: s.time === "1시" || s.time === "9시" ? s.time : null,
+        raid: s.raid ? String(s.raid) : "게헨나",
+        attendees: [...new Set(s.attendees.map(rename).filter(Boolean))]
+      }));
+    // 게임 닉네임 → 명단 이름 (스크린샷 인식용) · 예전 파일에는 없으므로 기본값 fury → 장
+    const aliases = {};
+    const srcAliases = d.aliases && typeof d.aliases === "object" ? d.aliases
+      : (ver >= DATA_VERSION ? {} : { "fury": "장" });
+    Object.keys(srcAliases).forEach(k => {
+      const key = String(k).trim().toLowerCase();
+      const val = rename(srcAliases[k]);
+      if(key && val) aliases[key] = val;
+    });
+    return { version: DATA_VERSION, members, aliases, sessions: sortSessions(sessions) };
+  }
+
+  const keyOf = s => s.date + "|" + (s.time || "-") + "|" + s.raid;
+  const timeOrder = t => t === "1시" ? 0 : t === "9시" ? 1 : 2;
+  function sortSessions(list){
+    return list.sort((a,b) => a.date.localeCompare(b.date) || timeOrder(a.time) - timeOrder(b.time) || a.raid.localeCompare(b.raid));
+  }
+  function shortDate(date){
+    const [, m, d] = date.split("-");
+    return Number(m) + "월 " + Number(d) + "일";
+  }
+  function labelOf(s){
+    const parts = [shortDate(s.date)];
+    if(s.time) parts.push(s.time);
+    if(s.raid !== "게헨나") parts.push(s.raid);
+    return parts.join(" ") + " 공대";
+  }
+  const isBoss = s => s.raid !== "게헨나";
+
+  /* ---------- 알림 ---------- */
+  let toastTimer;
+  function toast(msg){
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove("show"), 2400);
+  }
+
+  function setPressed(groupId, value){
+    $(groupId).querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === value)));
+  }
+
+  /* 두 번 눌러야 실행되는 버튼 (삭제 · 빼기) */
+  function armButton(btn, label, confirmLabel, action){
+    let timer;
+    btn.textContent = label;
+    btn.addEventListener("click", () => {
+      if(!btn.classList.contains("armed")){
+        btn.classList.add("armed");
+        btn.textContent = confirmLabel;
+        timer = setTimeout(() => { btn.classList.remove("armed"); btn.textContent = label; }, 3000);
+        return;
+      }
+      clearTimeout(timer);
+      action();
+    });
+  }
+
+  /* ---------- 탭 ---------- */
+  function renderView(){
+    $("viewRecord").hidden = view !== "record";
+    $("viewMembers").hidden = view !== "members";
+    $("tabRecord").setAttribute("aria-selected", String(view === "record"));
+    $("tabMembers").setAttribute("aria-selected", String(view === "members"));
+  }
+  document.querySelectorAll(".tabs button").forEach(b => {
+    b.addEventListener("click", () => {
+      view = b.dataset.view;
+      history.replaceState(null, "", view === "members" ? "#members" : "#");
+      renderView();
+      if(view === "record") renderForm();
+      else renderRoster();
+    });
+  });
+
+  /* ---------- 공대 기록 입력 ---------- */
+  function renderForm(){
+    $("fDate").value = form.date;
+    setPressed("fTime", form.time);
+    setPressed("fRaid", form.raid);
+
+    // 명단에서 빠진 사람은 선택 목록에서 제외
+    form.picked.forEach(n => { if(!data.members.includes(n)) form.picked.delete(n); });
+
+    const grid = $("pickGrid");
+    grid.textContent = "";
+    if(!data.members.length){
+      const p = el("div", "empty-inline", "등록된 클랜원이 없습니다.");
+      const go = el("button", "btn sm", "클랜원 추가하러 가기");
+      go.type = "button";
+      go.addEventListener("click", () => $("tabMembers").click());
+      p.appendChild(go);
+      grid.appendChild(p);
+    }
+    data.members.forEach(name => {
+      const b = el("button", "pick", name);
+      b.type = "button";
+      b.title = name;
+      b.dataset.name = name;
+      b.setAttribute("aria-pressed", String(form.picked.has(name)));
+      b.addEventListener("click", () => togglePick(name));
+      grid.appendChild(b);
+    });
+    applyPickFilter();
+    renderFormMeta();
+  }
+
+  function togglePick(name){
+    form.picked.has(name) ? form.picked.delete(name) : form.picked.add(name);
+    const b = [...$("pickGrid").querySelectorAll(".pick")].find(x => x.dataset.name === name);
+    if(b) b.setAttribute("aria-pressed", String(form.picked.has(name)));
+    renderFormMeta();
+  }
+
+  /* ---------- 참여자 검색 (초성 검색 가능 : ㅉㄱ → 짱구) ---------- */
+  const CHO = ["ㄱ","ㄲ","ㄴ","ㄷ","ㄸ","ㄹ","ㅁ","ㅂ","ㅃ","ㅅ","ㅆ","ㅇ","ㅈ","ㅉ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"];
+  function choOf(ch){
+    const code = ch.charCodeAt(0) - 0xAC00;
+    return code >= 0 && code <= 11171 ? CHO[Math.floor(code / 588)] : ch;
+  }
+  function nameMatches(name, query){
+    const n = name.toLowerCase(), q = query.toLowerCase().replace(/\s+/g, "");
+    if(!q) return true;
+    if(n.includes(q)) return true;
+    // 글자마다 : 같은 글자이거나, 검색어가 초성이면 이름 글자의 초성과 비교
+    for(let i = 0; i + q.length <= n.length; i++){
+      let ok = true;
+      for(let j = 0; j < q.length; j++){
+        const qc = q[j], nc = n[i + j];
+        if(qc !== nc && !(CHO.includes(qc) && choOf(nc) === qc)){ ok = false; break; }
+      }
+      if(ok) return true;
+    }
+    return false;
+  }
+
+  function applyPickFilter(){
+    const input = $("pickSearch");
+    const q = input.value.trim();
+    const buttons = [...$("pickGrid").querySelectorAll(".pick")];
+    let first = null, shown = 0;
+    buttons.forEach(b => {
+      const hit = nameMatches(b.dataset.name, q);
+      b.hidden = !hit;
+      b.classList.remove("first");
+      if(hit){ shown++; if(!first) first = b; }
+    });
+    if(q && first) first.classList.add("first");
+    $("btnClearSearch").hidden = !q;
+    const hint = $("pickHint");
+    if(!q) hint.textContent = "";
+    else if(!shown) hint.textContent = "검색 결과가 없습니다";
+    else hint.textContent = shown + "명 · Enter를 누르면 '" + first.dataset.name + "' " + (form.picked.has(first.dataset.name) ? "선택 해제" : "선택");
+    hint.classList.toggle("none", !!q && !shown);
+  }
+
+  function clearPickSearch(){
+    $("pickSearch").value = "";
+    applyPickFilter();
+    $("pickSearch").focus();
+  }
+
+  /* ---------- 스크린샷으로 참여자 선택 (ocr.js) ---------- */
+  async function runOcr(fileList){
+    const images = [...fileList].filter(f => f && f.type && f.type.indexOf("image/") === 0);
+    if(!images.length){ toast("이미지 파일을 골라주세요"); return; }
+    if(!window.RaidOCR){ toast("ocr.js 파일을 찾지 못했습니다. index.html 과 같은 폴더에 있어야 합니다."); return; }
+    if(ocrState && ocrState.running) return;
+
+    ocrState = { running: true, text: "준비 중…", done: 0, total: 0, items: [], cells: 0 };
+    renderOcr();
+    try{
+      for(let i = 0; i < images.length; i++){
+        const r = await RaidOCR.read(images[i], {
+          members: data.members,
+          aliases: data.aliases,
+          onProgress: p => {
+            ocrState.text = (images.length > 1 ? "사진 " + (i + 1) + " / " + images.length + " · " : "") + p.text;
+            ocrState.done = p.done || 0;
+            ocrState.total = p.total || 0;
+            renderOcrProgress();
+          }
+        });
+        ocrState.cells += r.cells;
+        r.items.forEach(it => ocrState.items.push(Object.assign(it, { photo: i + 1 })));
+      }
+
+      // 여러 장에 같은 사람이 있으면 하나만 (자동 선택을 우선)
+      const taken = new Set();
+      ["auto", "check"].forEach(status => {
+        ocrState.items.filter(it => it.status === status).forEach(it => {
+          if(taken.has(it.member) && !it.duplicate){ it.status = "dup"; return; }
+          if(!it.duplicate) taken.add(it.member);
+        });
+      });
+      ocrState.items.forEach(it => {
+        it.include = true;
+        it.choice = (it.status === "auto" || it.status === "check") ? it.member : "";
+        it.remember = true;
+      });
+      ocrState.running = false;
+    }catch(err){
+      ocrState = { running: false, error: (err && err.message) || "사진을 읽지 못했습니다" };
+    }
+    renderOcr();
+  }
+
+  function renderOcrProgress(){
+    const t = $("ocrProgressText"), b = $("ocrProgressBar");
+    if(!t || !ocrState) return;
+    t.textContent = ocrState.text;
+    b.style.width = ocrState.total ? Math.round(ocrState.done / ocrState.total * 100) + "%" : "8%";
+  }
+
+  function ocrChosen(){
+    const chosen = new Set();
+    (ocrState.items || []).forEach(it => {
+      if(it.status === "dup") return;
+      if(it.status === "auto"){ if(it.include) chosen.add(it.member); }
+      else if(it.choice) chosen.add(it.choice);
+    });
+    return chosen;
+  }
+
+  function memberSelect(it, onChange){
+    const sel = el("select", "ocr-select");
+    sel.setAttribute("aria-label", "'" + (it.read || it.raw) + "' 에 해당하는 클랜원");
+    const none = el("option", "", "선택 안 함");
+    none.value = "";
+    sel.appendChild(none);
+    data.members.forEach(m => {
+      const o = el("option", "", m);
+      o.value = m;
+      if(m === it.choice) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.addEventListener("change", () => { it.choice = sel.value; onChange(); });
+    return sel;
+  }
+
+  function renderOcr(){
+    const panel = $("ocrPanel");
+    panel.textContent = "";
+    panel.hidden = !ocrState;
+    $("btnOcr").disabled = !!(ocrState && ocrState.running);
+    if(!ocrState) return;
+
+    const head = el("div", "ocr-head");
+    head.appendChild(el("strong", "", "스크린샷 인식"));
+    if(!ocrState.running){
+      const close = el("button", "btn ghost sm", "닫기");
+      close.type = "button";
+      close.addEventListener("click", () => { ocrState = null; renderOcr(); });
+      head.appendChild(close);
+    }
+    panel.appendChild(head);
+
+    if(ocrState.running){
+      const prog = el("div", "ocr-progress");
+      const track = el("div", "ocr-track");
+      const bar = el("div", "ocr-bar-fill");
+      bar.id = "ocrProgressBar";
+      track.appendChild(bar);
+      const text = el("div", "ocr-progress-text");
+      text.id = "ocrProgressText";
+      prog.append(track, text);
+      panel.appendChild(prog);
+      renderOcrProgress();
+      return;
+    }
+
+    if(ocrState.error){
+      panel.appendChild(el("p", "ocr-msg error", ocrState.error));
+      return;
+    }
+    if(!ocrState.cells){
+      panel.appendChild(el("p", "ocr-msg error", "이름 위치를 찾지 못했습니다. 'Lv. 숫자'가 보이는 공대 명단 화면인지 확인하세요."));
+      return;
+    }
+
+    const autos = ocrState.items.filter(it => it.status === "auto");
+    const checks = ocrState.items.filter(it => it.status === "check");
+    const unknowns = ocrState.items.filter(it => it.status === "unknown");
+    const dups = ocrState.items.filter(it => it.status === "dup");
+
+    panel.appendChild(el("p", "ocr-summary",
+      "이름 " + ocrState.cells + "칸 읽음 · 자동 선택 " + autos.length + "명 · 확인 필요 " + checks.length + "명 · 못 찾음 " + unknowns.length + "칸" +
+      (dups.length ? " · 중복 " + dups.length + "칸 제외" : "")));
+
+    const refreshFoot = () => {
+      const n = ocrChosen().size;
+      $("btnOcrApply").textContent = "참여자에 반영 (" + n + "명)";
+      $("btnOcrApply").disabled = !n;
+    };
+
+    if(autos.length){
+      const g = el("div", "ocr-group");
+      g.appendChild(el("div", "ocr-group-title", "자동 선택 · 잘못 잡힌 사람은 눌러서 빼세요"));
+      const chips = el("div", "ocr-chips");
+      autos.forEach(it => {
+        const b = el("button", "ocr-chip", it.member);
+        b.type = "button";
+        b.title = "읽은 글자: " + it.read;
+        b.setAttribute("aria-pressed", String(it.include));
+        b.addEventListener("click", () => {
+          it.include = !it.include;
+          b.setAttribute("aria-pressed", String(it.include));
+          refreshFoot();
+        });
+        chips.appendChild(b);
+      });
+      g.appendChild(chips);
+      panel.appendChild(g);
+    }
+
+    const rowGroup = (list, title, isUnknown) => {
+      if(!list.length) return;
+      const g = el("div", "ocr-group" + (isUnknown ? " unknown" : " check"));
+      g.appendChild(el("div", "ocr-group-title", title));
+      list.forEach(it => {
+        const row = el("div", "ocr-row");
+        const img = el("img", "ocr-crop");
+        img.src = it.image;
+        img.alt = "사진 속 이름 칸";
+        const read = el("div", "ocr-read");
+        read.appendChild(el("span", "", "읽은 글자 "));
+        read.appendChild(el("b", "", it.read || it.raw || "(읽지 못함)"));
+        if(it.duplicate) read.appendChild(el("span", "ocr-dup", "같은 사람이 또 있음"));
+        const pick = el("div", "ocr-pick");
+        const remember = el("label", "ocr-remember");
+        const cb = el("input");
+        cb.type = "checkbox";
+        cb.checked = it.remember;
+        cb.addEventListener("change", () => { it.remember = cb.checked; });
+        const rememberText = el("span");
+        remember.append(cb, rememberText);
+        const updateRemember = () => {
+          const can = isUnknown && it.choice && it.read && it.read.length >= 2 && !data.members.includes(it.read);
+          remember.hidden = !can;
+          if(can) rememberText.textContent = "'" + it.read + "' 를 " + it.choice + " 의 게임 닉네임으로 기억";
+        };
+        pick.appendChild(memberSelect(it, () => { updateRemember(); refreshFoot(); }));
+        pick.appendChild(remember);
+        updateRemember();
+        row.append(img, read, pick);
+        g.appendChild(row);
+      });
+      panel.appendChild(g);
+    };
+    rowGroup(checks, "확인 필요 · 비슷한 이름을 골라뒀습니다. 사진과 맞는지 확인하세요", false);
+    rowGroup(unknowns, "못 찾음 · 필요하면 직접 고르세요", true);
+
+    const foot = el("div", "ocr-foot");
+    const again = el("button", "btn sm", "다른 사진 읽기");
+    again.type = "button";
+    again.addEventListener("click", () => $("ocrFile").click());
+    const apply = el("button", "btn primary sm");
+    apply.type = "button";
+    apply.id = "btnOcrApply";
+    apply.addEventListener("click", applyOcr);
+    foot.append(again, apply);
+    panel.appendChild(foot);
+    refreshFoot();
+  }
+
+  function applyOcr(){
+    if(!ocrState || ocrState.running) return;
+    const chosen = ocrChosen();
+    let learned = [];
+    ocrState.items.forEach(it => {
+      if(it.status === "unknown" && it.choice && it.remember && it.read && it.read.length >= 2 && !data.members.includes(it.read)){
+        data.aliases[it.read.toLowerCase()] = it.choice;
+        learned.push(it.read + "→" + it.choice);
+      }
+    });
+    const before = form.picked.size;
+    chosen.forEach(n => form.picked.add(n));
+    if(learned.length) persist();
+    ocrState = null;
+    renderOcr();
+    renderForm();
+    toast("스크린샷에서 " + chosen.size + "명 반영 (새로 선택 " + (form.picked.size - before) + "명)" +
+      (learned.length ? " · 닉네임 기억: " + learned.join(", ") : ""));
+  }
+
+  function renderFormMeta(){
+    const draft = { date: form.date, time: form.time, raid: form.raid };
+    $("pickCount").textContent = form.picked.size;
+    $("memberTotal").textContent = data.members.length;
+
+    const pv = $("previewLabel");
+    pv.textContent = form.date ? labelOf(draft) : "날짜를 선택하세요";
+    pv.appendChild(el("small", "", "참여 " + form.picked.size + "명"));
+
+    const editing = data.sessions.find(s => keyOf(s) === form.editKey);
+    $("editNotice").hidden = !editing;
+    if(editing) $("editNotice").textContent = labelOf(editing) + " 기록을 수정하는 중입니다";
+    $("btnCancel").hidden = !editing;
+
+    const dup = data.sessions.find(s => keyOf(s) === keyOf(draft) && keyOf(s) !== form.editKey);
+    const dn = $("dupNotice");
+    dn.hidden = !dup;
+    dn.textContent = "";
+    if(dup){
+      const btn = el("button", "btn sm", "기존 기록 불러오기");
+      btn.type = "button";
+      btn.addEventListener("click", () => startEdit(keyOf(dup)));
+      dn.append(el("span", "", labelOf(dup) + " 기록이 이미 있습니다. 저장하면 덮어씁니다."), btn);
+    }
+
+    const save = $("btnSave");
+    save.textContent = editing ? "수정 저장" : dup ? "덮어쓰기" : "기록 저장";
+    save.disabled = !form.date;
+  }
+
+  function resetForm(){
+    form.editKey = null;
+    form.picked = new Set();
+  }
+
+  function startEdit(key){
+    const s = data.sessions.find(x => keyOf(x) === key);
+    if(!s) return;
+    form.editKey = key;
+    form.date = s.date;
+    form.time = s.time;
+    form.raid = s.raid;
+    form.picked = new Set(s.attendees.filter(n => data.members.includes(n)));
+    renderForm();
+    renderDays();
+    $("formTitle").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function saveSession(){
+    if(!form.date) return;
+    const old = data.sessions.find(s => keyOf(s) === form.editKey);
+    // 명단에서 빠진 사람의 기존 참여 기록은 유지
+    const kept = old ? old.attendees.filter(n => !data.members.includes(n)) : [];
+    const rec = {
+      date: form.date,
+      time: form.time,
+      raid: form.raid,
+      attendees: [...data.members.filter(n => form.picked.has(n)), ...kept]
+    };
+    const newKey = keyOf(rec);
+    data.sessions = data.sessions.filter(s => keyOf(s) !== newKey && keyOf(s) !== form.editKey);
+    data.sessions.push(rec);
+    sortSessions(data.sessions);
+    persist();
+    openKeys.add(newKey);
+    toast(labelOf(rec) + " 저장됨 · 참여 " + form.picked.size + "명");
+    resetForm();
+    renderAll();
+  }
+
+  /* ---------- 요약 · 참여율 ---------- */
+  function renderSummary(){
+    const bossCount = data.sessions.filter(isBoss).length;
+    $("summarySub").textContent = "클랜원 " + data.members.length + "명 · 기록된 공대 " + data.sessions.length + "회" +
+      (bossCount ? " (마슈미드 · 에노크 " + bossCount + "회)" : "");
+  }
+
+  function renderBars(){
+    setPressed("rateFilter", rateFilter);
+    const pool = data.sessions.filter(s => rateFilter === "all" ? true : rateFilter === "boss" ? isBoss(s) : !isBoss(s));
+    const total = pool.length;
+    const box = $("barChart");
+    box.textContent = "";
+    if(!total){ box.appendChild(el("p", "empty", "이 기준으로 기록된 공대가 아직 없습니다")); return; }
+    if(!data.members.length){ box.appendChild(el("p", "empty", "등록된 클랜원이 없습니다")); return; }
+
+    data.members.map(name => Object.assign({ name }, statsOf(name, pool)))
+      .sort((a,b) => b.rate - a.rate || b.cnt - a.cnt || a.name.localeCompare(b.name))
+      .forEach((s, i) => {
+      const row = el("div", "bar-line");
+      row.title = s.name + " · " + s.cnt + " / " + s.total + "회" +
+        (s.partial ? " (" + shortDate(s.since) + " 첫 참여 이후 기준)" : "");
+      const track = el("div", "bar-track");
+      const fill = el("div", "bar-fill");
+      fill.style.width = s.rate + "%";
+      track.appendChild(fill);
+      row.append(el("span", "bar-name", (i+1) + ". " + s.name), track, el("span", "bar-pct", s.rate + "%"));
+      box.appendChild(row);
+    });
+  }
+
+  /* ---------- 일자별 기록 ---------- */
+  function renderDays(){
+    const list = $("dayList");
+    list.textContent = "";
+    if(!data.sessions.length){
+      list.appendChild(el("p", "empty", "기록된 공대가 없습니다. 위에서 첫 기록을 입력하세요."));
+      return;
+    }
+
+    [...data.sessions].reverse().forEach(s => {
+      const key = keyOf(s);
+      const open = openKeys.has(key);
+      const wrap = el("div", "day");
+      const head = el("div", "day-head" + (form.editKey === key ? " current" : ""));
+
+      const toggle = el("button", "day-toggle");
+      toggle.type = "button";
+      toggle.setAttribute("aria-expanded", String(open));
+      toggle.append(el("span", "arrow", "▶"), el("span", "", labelOf(s)));
+      if(isBoss(s)) toggle.appendChild(el("span", "tag", s.raid));
+      toggle.appendChild(el("span", "day-count", s.attendees.filter(n => data.members.includes(n)).length + "명"));
+      toggle.addEventListener("click", () => {
+        openKeys.has(key) ? openKeys.delete(key) : openKeys.add(key);
+        renderDays();
+      });
+
+      const editBtn = el("button", "btn ghost sm", "수정");
+      editBtn.type = "button";
+      editBtn.addEventListener("click", () => startEdit(key));
+
+      const delBtn = el("button", "btn ghost sm danger");
+      delBtn.type = "button";
+      armButton(delBtn, "삭제", "삭제 확인", () => {
+        data.sessions = data.sessions.filter(x => keyOf(x) !== key);
+        if(form.editKey === key) resetForm();
+        persist();
+        toast(labelOf(s) + " 삭제됨");
+        renderAll();
+      });
+
+      const jsonBtn = el("button", "btn ghost sm", "JSON");
+      jsonBtn.type = "button";
+      jsonBtn.title = labelOf(s) + "만 JSON 파일로 저장";
+      jsonBtn.addEventListener("click", () => exportSession(s));
+
+      head.append(toggle, jsonBtn, editBtn, delBtn);
+      wrap.appendChild(head);
+
+      if(open){
+        const table = el("div", "day-table");
+        table.appendChild(el("div", "table-hint", "이름을 누르면 O / X가 바로 바뀝니다"));
+        data.members.forEach(name => {
+          const on = s.attendees.includes(name);
+          const cell = el("button", "cell " + (on ? "on" : "off"));
+          cell.type = "button";
+          cell.setAttribute("aria-pressed", String(on));
+          cell.append(el("span", "name", name), el("span", "mark", on ? "O" : "X"));
+          cell.addEventListener("click", () => {
+            s.attendees = s.attendees.includes(name) ? s.attendees.filter(x => x !== name) : [...s.attendees, name];
+            if(form.editKey === key) form.picked = new Set(s.attendees.filter(n => data.members.includes(n)));
+            persist();
+            renderAll();
+          });
+          table.appendChild(cell);
+        });
+        wrap.appendChild(table);
+      }
+      list.appendChild(wrap);
+    });
+  }
+
+  /* ---------- 클랜원 관리 ---------- */
+  /* 참여율은 그 사람이 '처음 참여한 공대'부터 센다.
+     전체 공대 수로 나누면 뒤늦게 합류한 클랜원은 개근해도 낮게 나오기 때문 */
+  function statsOf(name, pool){
+    const has = s => s.attendees.includes(name);
+    const first = pool.findIndex(has);   // pool 은 날짜 · 시간순 정렬 상태
+    if(first < 0) return { cnt: 0, total: pool.length, rate: 0, last: null, since: null, partial: false };
+    const eligible = pool.slice(first);  // 첫 참여한 공대부터 (같은 날 앞 타임은 제외됨)
+    const joined = eligible.filter(has);
+    return {
+      cnt: joined.length,
+      total: eligible.length,
+      rate: Math.round(joined.length / eligible.length * 100),
+      last: joined[joined.length - 1].date,
+      since: pool[first].date,
+      partial: first > 0
+    };
+  }
+  const memberStats = name => statsOf(name, data.sessions);
+
+  function showAddMsg(msg, isError){
+    const m = $("addMsg");
+    m.textContent = msg;
+    m.classList.toggle("error", !!isError);
+  }
+
+  function addMembers(){
+    const input = $("newName");
+    const names = [...new Set(input.value.split(",").map(s => s.trim()).filter(Boolean))];
+    if(!names.length){ showAddMsg("이름을 입력하세요.", true); input.focus(); return; }
+
+    const added = [], exists = [];
+    names.forEach(n => {
+      if(data.members.includes(n)) exists.push(n);
+      else { data.members.push(n); added.push(n); }
+    });
+
+    if(added.length){
+      persist();
+      input.value = "";
+      const msg = added.join(", ") + " 추가됨" + (exists.length ? " · 이미 있는 이름: " + exists.join(", ") : "");
+      showAddMsg(msg, false);
+      toast(added.length + "명 추가됨");
+      renderAll();
+    }else{
+      showAddMsg("이미 명단에 있는 이름입니다: " + exists.join(", "), true);
+    }
+    input.focus();
+  }
+
+  function removeMember(name){
+    data.members = data.members.filter(n => n !== name);
+    form.picked.delete(name);
+    persist();
+    toast(name + " 님을 명단에서 뺐습니다");
+    renderAll();
+  }
+
+  function restoreMember(name){
+    if(data.members.includes(name)) return;
+    data.members.push(name);
+    persist();
+    toast(name + " 님을 다시 넣었습니다");
+    renderAll();
+  }
+
+  function addAlias(name, value){
+    const key = value.trim().replace(/^we(?=[A-Za-z가-힣])/i, "").toLowerCase();
+    if(!key){ aliasEditing = null; renderRoster(); return; }
+    if(data.members.some(m => m.toLowerCase() === key)){ toast("'" + key + "'은(는) 명단에 있는 이름이라 닉네임으로 쓸 수 없습니다"); return; }
+    const before = data.aliases[key];
+    data.aliases[key] = name;
+    aliasEditing = null;
+    persist();
+    toast(before && before !== name
+      ? "'" + key + "' 닉네임을 " + before + " → " + name + "(으)로 옮김"
+      : name + "의 게임 닉네임 '" + key + "' 등록");
+    renderRoster();
+  }
+
+  function renameMember(oldName, newName){
+    newName = newName.trim();
+    if(!newName || newName === oldName){ renaming = null; renderRoster(); return true; }
+    if(data.members.includes(newName)){ toast("이미 명단에 있는 이름입니다"); return false; }
+    data.members = data.members.map(n => n === oldName ? newName : n);
+    data.sessions.forEach(s => { s.attendees = s.attendees.map(n => n === oldName ? newName : n); });
+    Object.keys(data.aliases).forEach(k => { if(data.aliases[k] === oldName) data.aliases[k] = newName; });
+    if(form.picked.has(oldName)){ form.picked.delete(oldName); form.picked.add(newName); }
+    renaming = null;
+    persist();
+    toast(oldName + " → " + newName + " 이름 변경됨 (지난 기록 포함)");
+    renderAll();
+    return true;
+  }
+
+  function renderRoster(){
+    $("rosterCount").textContent = data.members.length;
+    const ul = $("roster");
+    ul.textContent = "";
+    const q = rosterQuery.trim().toLowerCase();
+    const list = data.members.map((n, i) => ({ name: n, no: i + 1 })).filter(m => !q || m.name.toLowerCase().includes(q));
+
+    if(!list.length){
+      const li = el("li");
+      li.style.display = "block";
+      li.appendChild(el("p", "empty", q ? "검색 결과가 없습니다" : "등록된 클랜원이 없습니다. 위에서 추가하세요."));
+      ul.appendChild(li);
+    }
+
+    list.forEach(({ name, no }) => {
+      const st = memberStats(name);
+      const li = el("li");
+      li.appendChild(el("span", "no", no));
+
+      if(renaming === name){
+        const box = el("div", "rename");
+        const input = el("input");
+        input.type = "text";
+        input.value = name;
+        input.setAttribute("aria-label", name + " 새 이름");
+        const ok = el("button", "btn sm primary", "변경");
+        ok.type = "button";
+        const cancel = el("button", "btn sm", "취소");
+        cancel.type = "button";
+        ok.addEventListener("click", () => renameMember(name, input.value));
+        cancel.addEventListener("click", () => { renaming = null; renderRoster(); });
+        input.addEventListener("keydown", e => {
+          if(e.isComposing) return;
+          if(e.key === "Enter") renameMember(name, input.value);
+          if(e.key === "Escape"){ renaming = null; renderRoster(); }
+        });
+        box.append(input, ok, cancel);
+        li.appendChild(box);
+        li.appendChild(el("span"));
+        li.appendChild(el("span"));
+        ul.appendChild(li);
+        setTimeout(() => { input.focus(); input.select(); }, 0);
+        return;
+      }
+
+      const who = el("div", "who");
+      who.append(
+        el("strong", "", name),
+        el("span", "", st.last
+          ? "참여 " + st.cnt + " / " + st.total + "회 · 최근 " + shortDate(st.last)
+          : "참여 기록 없음")
+      );
+
+      // 게임 닉네임 (스크린샷 인식에 쓰임)
+      const myAliases = Object.keys(data.aliases).filter(k => data.aliases[k] === name);
+      if(myAliases.length || aliasEditing === name){
+        const line = el("div", "alias-line");
+        line.appendChild(el("span", "alias-label", "게임 닉네임"));
+        myAliases.forEach(a => {
+          const chip = el("span", "alias-chip", a);
+          const x = el("button", "", "×");
+          x.type = "button";
+          x.setAttribute("aria-label", a + " 닉네임 삭제");
+          x.addEventListener("click", () => {
+            delete data.aliases[a];
+            persist();
+            toast(name + "의 게임 닉네임 '" + a + "' 삭제");
+            renderRoster();
+          });
+          chip.appendChild(x);
+          line.appendChild(chip);
+        });
+        if(aliasEditing === name){
+          const input = el("input", "alias-input");
+          input.type = "text";
+          input.placeholder = "클랜 태그 없이 (예: fury)";
+          input.setAttribute("aria-label", name + " 게임 닉네임");
+          const ok = el("button", "btn sm primary", "추가");
+          ok.type = "button";
+          const cancel = el("button", "btn sm", "취소");
+          cancel.type = "button";
+          const submit = () => addAlias(name, input.value);
+          ok.addEventListener("click", submit);
+          cancel.addEventListener("click", () => { aliasEditing = null; renderRoster(); });
+          input.addEventListener("keydown", e => {
+            if(e.isComposing) return;
+            if(e.key === "Enter") submit();
+            if(e.key === "Escape"){ aliasEditing = null; renderRoster(); }
+          });
+          line.append(input, ok, cancel);
+          setTimeout(() => input.focus(), 0);
+        }
+        who.appendChild(line);
+      }
+
+      const rate = el("span", "rate" + (st.rate < 50 ? " low" : ""), st.rate + "%");
+      rate.title = st.partial
+        ? shortDate(st.since) + " 첫 참여 이후 " + st.total + "회 중 " + st.cnt + "회 참여"
+        : "전체 공대 " + st.total + "회 중 " + st.cnt + "회 참여";
+
+      const acts = el("div", "acts");
+      const nick = el("button", "btn ghost sm", "닉네임");
+      nick.type = "button";
+      nick.title = "게임 닉네임이 명단 이름과 다를 때 등록 (스크린샷 인식용)";
+      nick.addEventListener("click", () => { aliasEditing = name; renderRoster(); });
+      acts.appendChild(nick);
+      const ren = el("button", "btn ghost sm", "이름 변경");
+      ren.type = "button";
+      ren.addEventListener("click", () => { renaming = name; renderRoster(); });
+      const del = el("button", "btn ghost sm danger");
+      del.type = "button";
+      armButton(del, "빼기", "정말 빼기", () => removeMember(name));
+      acts.append(ren, del);
+
+      li.append(who, rate, acts);
+      ul.appendChild(li);
+    });
+
+    // 명단에서 뺐지만 지난 공대 기록에 남아 있는 이름
+    const former = [...new Set(data.sessions.flatMap(s => s.attendees))].filter(n => !data.members.includes(n));
+    $("formerWrap").hidden = !former.length;
+    const fl = $("formerList");
+    fl.textContent = "";
+    former.forEach(n => {
+      const chip = el("span", "former-chip", n);
+      const back = el("button", "", "다시 넣기");
+      back.type = "button";
+      back.addEventListener("click", () => restoreMember(n));
+      chip.appendChild(back);
+      fl.appendChild(chip);
+    });
+  }
+
+  function renderAll(){
+    renderSummary();
+    renderForm();
+    renderBars();
+    renderDays();
+    renderRoster();
+  }
+
+  /* ---------- JSON 내보내기 · 불러오기 ---------- */
+  /* 백업 폴더 : 크롬 · 엣지의 폴더 접근 기능으로 지정한 폴더에 바로 저장
+     폴더 정보는 IndexedDB 에 보관 (다음에 열어도 유지, 권한은 브라우저가 한 번 더 물어볼 수 있음) */
+  const canPickFolder = typeof window.showDirectoryPicker === "function";
+  let backupDir = null;
+
+  function idb(mode, fn){
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open("gehenna-raid", 1);
+      req.onupgradeneeded = () => req.result.createObjectStore("handles");
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => {
+        const tx = req.result.transaction("handles", mode);
+        const r = fn(tx.objectStore("handles"));
+        tx.oncomplete = () => resolve(r && r.result);
+        tx.onerror = () => reject(tx.error);
+      };
+    });
+  }
+
+  async function loadBackupDir(){
+    if(!canPickFolder) return;
+    try{ backupDir = (await idb("readonly", s => s.get("backupDir"))) || null; }catch(e){}
+    renderFolder();
+  }
+
+  const JSON_DIR = "json";
+
+  // 저장할 폴더 : json 폴더를 고르면 그대로, 그 위 폴더(test)를 고르면 안의 json 폴더로
+  async function targetDir(dir){
+    if(dir.name === JSON_DIR) return dir;
+    try{ return await dir.getDirectoryHandle(JSON_DIR); }catch(e){ return dir; }
+  }
+
+  async function pickBackupDir(){
+    try{
+      toast("test 폴더 안의 json 폴더를 선택하세요");
+      const dir = await window.showDirectoryPicker({ id: "gehenna-json", mode: "readwrite", startIn: "desktop" });
+      const target = await targetDir(dir);
+      backupDir = target;
+      try{ await idb("readwrite", s => s.put(target, "backupDir")); }catch(e){}
+      renderFolder();
+      toast(target.name === JSON_DIR
+        ? "저장 폴더: json · 이제 내보내면 json 폴더에 쌓입니다"
+        : "저장 폴더: " + target.name + " (json 폴더가 아님 · 버튼을 눌러 다시 고를 수 있습니다)");
+      return true;
+    }catch(e){
+      if(e && e.name === "AbortError") return false;
+      toast("폴더를 지정하지 못했습니다");
+      return "error";
+    }
+  }
+
+  function renderFolder(){
+    const btn = $("btnFolder");
+    if(!canPickFolder){ btn.hidden = true; return; }
+    btn.hidden = false;
+    btn.textContent = backupDir ? "저장 폴더: " + backupDir.name : "json 폴더 지정";
+    btn.title = backupDir ? "눌러서 저장 폴더 변경" : "JSON 파일을 쌓아둘 json 폴더 선택";
+  }
+
+  function stampName(){
+    const d = new Date();
+    const p = n => String(n).padStart(2, "0");
+    return "gehenna-raid-" + todayStr() + "_" + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds()) + ".json";
+  }
+
+  function markExported(msg){
+    meta.changes = 0;
+    meta.lastExport = new Date().toISOString();
+    saveMeta();
+    toast(msg);
+  }
+
+  function downloadFile(json, filename){
+    const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  /* JSON 파일 쓰기 : json 폴더(지정한 폴더) → 안 되면 다운로드 폴더
+     저장된 곳 문구를 돌려줌 · 취소하거나 실패하면 null */
+  async function writeJsonFile(json, filename){
+    // 폴더 기능이 없는 브라우저 (파이어폭스 등) : 다운로드 폴더로
+    if(!canPickFolder){
+      downloadFile(json, filename);
+      return "다운로드 폴더";
+    }
+
+    if(!backupDir){
+      const picked = await pickBackupDir();
+      if(picked === false) return null;            // 폴더 선택 취소
+      if(picked === "error"){                      // 이 환경에서 폴더 기능이 막힌 경우 : 다운로드로 대신 저장
+        downloadFile(json, filename);
+        return "다운로드 폴더";
+      }
+    }
+
+    try{
+      const opts = { mode: "readwrite" };
+      if((await backupDir.queryPermission(opts)) !== "granted" &&
+         (await backupDir.requestPermission(opts)) !== "granted"){
+        toast("폴더 저장 권한이 없어 저장하지 못했습니다");
+        return null;
+      }
+      const dir = await targetDir(backupDir);   // 예전에 test 폴더를 지정했어도 안의 json 폴더로 저장
+      const fh = await dir.getFileHandle(filename, { create: true });
+      const w = await fh.createWritable();
+      await w.write(json);
+      await w.close();
+      return dir.name + " 폴더";
+    }catch(e){
+      // 폴더가 옮겨졌거나 지워진 경우
+      backupDir = null;
+      try{ await idb("readwrite", s => s.delete("backupDir")); }catch(e2){}
+      renderFolder();
+      toast("저장 폴더에 쓰지 못했습니다. 폴더를 다시 지정해 주세요.");
+      return null;
+    }
+  }
+
+  // 전체 기록 내보내기 (백업)
+  async function exportJson(){
+    const filename = stampName();
+    const where = await writeJsonFile(JSON.stringify(data, null, 2), filename);
+    if(where) markExported(where + "에 " + filename + " 저장됨");
+  }
+
+  // 공대 한 건만 내보내기 → 다른 사람이 불러오면 그 공대 기록이 추가됨
+  async function exportSession(s){
+    const payload = {
+      version: DATA_VERSION,
+      type: "session",
+      exportedAt: new Date().toISOString(),
+      session: { date: s.date, time: s.time, raid: s.raid, attendees: [...s.attendees] }
+    };
+    const filename = "gehenna-raid_" + s.date + "_" + (s.time || "시간없음") + "_" + s.raid.replace(/[\\\/:*?"<>|]/g, "-") + ".json";
+    const where = await writeJsonFile(JSON.stringify(payload, null, 2), filename);
+    if(where) toast(labelOf(s) + " → " + where + "에 " + filename + " 저장됨");
+  }
+
+  /* 불러온 데이터가 내보내기 폴더의 백업과 같다는 보장은 없으므로
+     기본은 '변경 1건' (= 아직 백업 안 함) 으로 표시한다 */
+  function replaceData(d, changes){
+    data = d;
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify(data)); }catch(e){}
+    meta.changes = changes === undefined ? 1 : changes;
+    saveMeta();
+    openKeys.clear();
+    resetForm();
+    renaming = null;
+    renderAll();
+  }
+
+  function undoImport(){
+    let prev = null;
+    try{ prev = normalize(JSON.parse(localStorage.getItem(PREV_KEY))); }catch(e){}
+    if(!prev){ toast("되돌릴 데이터가 없습니다"); return; }
+    replaceData(prev);   // 되돌린 상태도 백업 파일과 다르므로 변경으로 표시됨
+    $("btnUndoImport").hidden = true;
+    toast("불러오기 전 데이터로 되돌렸습니다");
+  }
+
+  // 공대 한 건 파일을 현재 기록에 합치기 (같은 날짜 · 시간 · 공대가 있으면 덮어씀)
+  function mergeSession(raw, ver){
+    const one = normalize({ version: ver, members: [], sessions: [raw] });
+    const rec = one && one.sessions[0];
+    if(!rec) throw new Error("session");
+    const added = rec.attendees.filter(n => !data.members.includes(n));
+    data.members.push(...added);               // 내 명단에 없는 참여자는 명단에 추가
+    const key = keyOf(rec);
+    const replaced = data.sessions.some(s => keyOf(s) === key);
+    data.sessions = data.sessions.filter(s => keyOf(s) !== key);
+    data.sessions.push(rec);
+    sortSessions(data.sessions);
+    openKeys.add(key);
+    return labelOf(rec) + (replaced ? " 덮어씀" : " 추가") + " (" + rec.attendees.length + "명" +
+      (added.length ? " · 명단에 추가: " + added.join(", ") : "") + ")";
+  }
+
+  // 여러 파일을 한 번에 골라도 됨 : 공대 한 건 파일은 합치고, 전체 백업 파일은 통째로 바꿈
+  async function importJson(e){
+    const files = [...e.target.files];
+    e.target.value = "";
+    if(!files.length) return;
+
+    const before = JSON.stringify(data);
+    const results = [];
+    let replacedAll = false, failed = 0;
+
+    for(const file of files){
+      try{
+        const obj = JSON.parse(await file.text());
+        if(obj && obj.type === "session" && obj.session){
+          results.push(mergeSession(obj.session, Number(obj.version) || 1));
+        }else{
+          const d = normalize(obj);
+          if(!d) throw new Error("shape");
+          data = d;
+          openKeys.clear();
+          replacedAll = true;
+          results.push("전체 기록 (클랜원 " + d.members.length + "명, 공대 " + d.sessions.length + "회)");
+        }
+      }catch(err){
+        failed++;
+      }
+    }
+
+    if(!results.length){
+      toast("공대 기록 JSON 파일이 아닙니다. 내보내기로 만든 파일을 선택하세요.");
+      return;
+    }
+
+    // 불러오기 직전 데이터를 보관 → 되돌리기 가능
+    try{ localStorage.setItem(PREV_KEY, before); }catch(e2){}
+    resetForm();
+    renaming = null;
+    if(replacedAll && results.length === 1){
+      replaceData(data);
+    }else{
+      persist();
+      renderAll();
+    }
+    $("btnUndoImport").hidden = false;
+    toast("불러옴 · " + results.join(" / ") + (failed ? " · 읽지 못한 파일 " + failed + "개" : ""));
+  }
+
+  /* ---------- 이벤트 ---------- */
+  $("fDate").addEventListener("change", e => { form.date = e.target.value; renderFormMeta(); });
+  $("fTime").addEventListener("click", e => {
+    const b = e.target.closest("button"); if(!b) return;
+    form.time = b.dataset.v; setPressed("fTime", form.time); renderFormMeta();
+  });
+  $("fRaid").addEventListener("click", e => {
+    const b = e.target.closest("button"); if(!b) return;
+    form.raid = b.dataset.v; setPressed("fRaid", form.raid); renderFormMeta();
+  });
+  $("btnAll").addEventListener("click", () => { form.picked = new Set(data.members); renderForm(); });
+  $("btnNone").addEventListener("click", () => { form.picked = new Set(); renderForm(); });
+  $("pickSearch").addEventListener("input", applyPickFilter);
+  $("pickSearch").addEventListener("keydown", e => {
+    if(e.isComposing) return;
+    if(e.key === "Enter"){
+      e.preventDefault();
+      const first = $("pickGrid").querySelector(".pick.first");
+      if(!first) return;
+      const name = first.dataset.name;
+      togglePick(name);
+      toast(name + (form.picked.has(name) ? " 선택" : " 선택 해제"));
+      clearPickSearch();   // 다음 사람을 바로 검색할 수 있게 비움
+    }
+    if(e.key === "Escape"){ e.preventDefault(); clearPickSearch(); }
+  });
+  $("btnClearSearch").addEventListener("click", clearPickSearch);
+
+  // 스크린샷 : 파일 선택 · 붙여넣기(Ctrl+V) · 끌어다 놓기
+  $("btnOcr").addEventListener("click", () => $("ocrFile").click());
+  $("ocrFile").addEventListener("change", e => { const f = [...e.target.files]; e.target.value = ""; runOcr(f); });
+  document.addEventListener("paste", e => {
+    if(view !== "record" || !e.clipboardData) return;
+    const files = [...e.clipboardData.files].filter(f => f.type.indexOf("image/") === 0);
+    if(!files.length) return;
+    e.preventDefault();
+    runOcr(files);
+  });
+  const dropZone = $("pickGrid").closest(".field");
+  dropZone.addEventListener("dragover", e => {
+    if([...e.dataTransfer.items].some(i => i.kind === "file")){ e.preventDefault(); dropZone.classList.add("dragging"); }
+  });
+  dropZone.addEventListener("dragleave", e => { if(!dropZone.contains(e.relatedTarget)) dropZone.classList.remove("dragging"); });
+  dropZone.addEventListener("drop", e => {
+    dropZone.classList.remove("dragging");
+    const files = [...e.dataTransfer.files].filter(f => f.type.indexOf("image/") === 0);
+    if(!files.length) return;
+    e.preventDefault();
+    runOcr(files);
+  });
+  $("btnSave").addEventListener("click", saveSession);
+  $("btnCancel").addEventListener("click", () => { resetForm(); renderForm(); renderDays(); });
+  $("rateFilter").addEventListener("click", e => {
+    const b = e.target.closest("button"); if(!b) return;
+    rateFilter = b.dataset.v; renderBars();
+  });
+
+  $("btnAddMember").addEventListener("click", addMembers);
+  $("newName").addEventListener("keydown", e => {
+    if(e.key === "Enter" && !e.isComposing){ e.preventDefault(); addMembers(); }
+  });
+  $("rosterSearch").addEventListener("input", e => { rosterQuery = e.target.value; renderRoster(); });
+
+  $("btnExport").addEventListener("click", exportJson);
+  $("fileImport").addEventListener("change", importJson);
+  armButton($("btnImport"), "JSON 불러오기", "파일을 불러올까요?", () => {
+    const b = $("btnImport");
+    b.classList.remove("armed");
+    b.textContent = "JSON 불러오기";
+    $("fileImport").click();
+  });
+  $("btnUndoImport").addEventListener("click", undoImport);
+
+  // 백업(JSON 내보내기) 안 한 변경이 있으면 창 닫을 때 한 번 더 확인
+  window.addEventListener("beforeunload", e => {
+    if(meta.changes > 0){ e.preventDefault(); e.returnValue = ""; }
+  });
+
+  $("btnFolder").addEventListener("click", pickBackupDir);
+
+  data = load();
+  renderBackup();
+  loadBackupDir();
+  renderView();
+  renderAll();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# 로컬 개발 설정
+.claude/
+
+# 윈도우 · 편집기 부산물
+Thumbs.db
+desktop.ini
+*.tmp
+
+# 개인 데이터 · 백업 (공개 저장소에는 올리지 않음 · 내 PC 에는 그대로 남아 있음)
+new.json
+json/
+sample.png
