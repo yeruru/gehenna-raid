@@ -17,6 +17,7 @@
 
   <div class="topbar">
     <div class="tabs" role="tablist">
+      <button type="button" role="tab" id="tabRate" data-view="rate" aria-controls="viewRate">참여율</button>
       <button type="button" role="tab" id="tabRecord" data-view="record" aria-controls="viewRecord">공대 기록</button>
       <button type="button" role="tab" id="tabMembers" data-view="members" aria-controls="viewMembers">클랜원 관리</button>
     </div>
@@ -33,8 +34,28 @@
 
   <div class="site-notice" id="siteNotice" hidden></div>
 
+  <!-- ================= 참여율 ================= -->
+  <div id="viewRate" role="tabpanel" aria-labelledby="tabRate">
+    <section aria-labelledby="rateTitle">
+      <div class="sec-head">
+        <h2 id="rateTitle">참여율</h2>
+        <div class="filter" id="rateFilter" role="group" aria-label="참여율 기준">
+          <button type="button" data-v="all">전체</button>
+          <button type="button" data-v="게헨나">게헨나</button>
+          <button type="button" data-v="boss">마슈미드 · 에노크</button>
+        </div>
+      </div>
+      <div class="rate-search">
+        <input type="search" id="rateSearch" placeholder="닉네임 검색 · 초성도 됩니다 (예: ㅉㄱ)" autocomplete="off" aria-label="참여율 닉네임 검색">
+        <button type="button" class="btn sm" id="btnClearRate" hidden>전체 보기</button>
+      </div>
+      <div class="pick-hint" id="rateHint" role="status"></div>
+      <div id="barChart"></div>
+    </section>
+  </div>
+
   <!-- ================= 공대 기록 ================= -->
-  <div id="viewRecord" role="tabpanel" aria-labelledby="tabRecord">
+  <div id="viewRecord" role="tabpanel" aria-labelledby="tabRecord" hidden>
 
     <section aria-labelledby="formTitle">
       <div class="sec-head">
@@ -102,18 +123,6 @@
       </div>
     </section>
 
-    <section aria-labelledby="rateTitle">
-      <div class="sec-head">
-        <h2 id="rateTitle">참여율</h2>
-        <div class="filter" id="rateFilter" role="group" aria-label="참여율 기준">
-          <button type="button" data-v="all">전체</button>
-          <button type="button" data-v="게헨나">게헨나</button>
-          <button type="button" data-v="boss">마슈미드 · 에노크</button>
-        </div>
-      </div>
-      <div id="barChart"></div>
-    </section>
-
     <section aria-labelledby="dayTitle">
       <div class="sec-head">
         <h2 id="dayTitle">일자별 참여 기록</h2>
@@ -175,7 +184,10 @@
   let data;   // 아래 함수들이 모두 선언된 뒤 맨 끝에서 load()
   const form = { date: todayStr(), time: "1시", raid: "게헨나", picked: new Set(), editKey: null };
   let rateFilter = "all";
-  let view = location.hash === "#members" ? "members" : "record";
+  const VIEWS = ["rate", "record", "members"];
+  // 주소 끝의 #rate · #record · #members 로 탭이 정해진다. 그냥 들어오면 참여율부터
+  let view = VIEWS.indexOf((location.hash || "").slice(1)) >= 0 ? location.hash.slice(1) : "rate";
+  let rateQuery = "";
   let renaming = null;
   let aliasEditing = null;
   let ocrState = null;   // 스크린샷 인식 결과
@@ -235,7 +247,8 @@
     const box = $("backupState");
     if(!box) return;
     const last = meta.lastExport ? new Date(meta.lastExport) : null;
-    const lastText = last ? (last.getMonth()+1) + "월 " + last.getDate() + "일 백업" : "아직 백업 안 함";
+    const pad2 = n => String(n).padStart(2, "0");
+    const lastText = last ? pad2(last.getMonth()+1) + "." + pad2(last.getDate()) + " 백업" : "아직 백업 안 함";
     box.textContent = meta.changes ? lastText + " · 이후 변경 " + meta.changes + "건" : lastText;
     box.classList.toggle("warn", meta.changes >= 5 || (!last && meta.changes > 0));
   }
@@ -252,7 +265,7 @@
      version 2 부터는 아래 표를 쓰지 않는다 ('이름 변경' 버튼이 실제 이름을 바꾸므로,
      매번 적용하면 장 → 퓨리 로 바꿔도 새로고침할 때 되돌아가 버림) */
   const DATA_VERSION = 2;
-  const LEGACY_RENAMES = { "퓨리": "장", "쇼우": "개꿀", "PERFECT": "PERFECTBAEK" };
+  const LEGACY_RENAMES = { "퓨리": "Fury", "장": "Fury", "쇼우": "개꿀", "PERFECT": "PERFECTBAEK" };
   const trimName = n => String(n == null ? "" : n).trim();
   const renamerFor = ver => ver >= DATA_VERSION
     ? trimName
@@ -291,7 +304,7 @@
   }
   function shortDate(date){
     const [, m, d] = date.split("-");
-    return Number(m) + "월 " + Number(d) + "일";
+    return m + "." + d;          // 2026-09-15 → 09.15
   }
   function labelOf(s){
     const parts = [shortDate(s.date)];
@@ -333,18 +346,20 @@
 
   /* ---------- 탭 ---------- */
   function renderView(){
-    $("viewRecord").hidden = view !== "record";
-    $("viewMembers").hidden = view !== "members";
-    $("tabRecord").setAttribute("aria-selected", String(view === "record"));
-    $("tabMembers").setAttribute("aria-selected", String(view === "members"));
+    VIEWS.forEach(v => {
+      const cap = v[0].toUpperCase() + v.slice(1);   // rate → Rate
+      $("view" + cap).hidden = view !== v;
+      $("tab" + cap).setAttribute("aria-selected", String(view === v));
+    });
   }
   document.querySelectorAll(".tabs button").forEach(b => {
     b.addEventListener("click", () => {
       view = b.dataset.view;
-      history.replaceState(null, "", view === "members" ? "#members" : "#");
+      history.replaceState(null, "", "#" + view);
       renderView();
       if(view === "record") renderForm();
-      else renderRoster();
+      else if(view === "members") renderRoster();
+      else renderBars();
     });
   });
 
@@ -489,7 +504,16 @@
     if(!window.RaidOCR){ toast("ocr.js 파일을 찾지 못했습니다. index.html 과 같은 폴더에 있어야 합니다."); return; }
     if(ocrState && ocrState.running) return;
 
-    ocrState = { running: true, text: "준비 중…", done: 0, total: 0, items: [], cells: 0 };
+    /* 이미 읽어 둔 결과가 있으면 지우지 않고 이어서 쌓는다.
+       사진을 여러 번 나눠 넣어도 앞 사진에서 잡힌 사람은 그대로 남고
+       새 사진에서 새로 잡힌 사람만 더해진다 ('닫기' 를 누르면 처음부터 다시) */
+    const kept = (ocrState && Array.isArray(ocrState.items)) ? ocrState.items : [];
+    const photoBase = kept.reduce((m, it) => Math.max(m, it.photo || 0), 0);
+    ocrState = {
+      running: true, text: "준비 중…", done: 0, total: 0,
+      items: kept,
+      cells: (ocrState && ocrState.cells) || 0
+    };
     renderOcr();
     try{
       for(let i = 0; i < images.length; i++){
@@ -504,27 +528,39 @@
           }
         });
         ocrState.cells += r.cells;
-        r.items.forEach(it => ocrState.items.push(Object.assign(it, { photo: i + 1 })));
+        r.items.forEach(it => ocrState.items.push(Object.assign(it, { photo: photoBase + i + 1 })));
       }
+    }catch(err){
+      ocrState.error = (err && err.message) || "사진을 읽지 못했습니다";
+    }
+    finalizeOcr();
+    ocrState.running = false;
+    renderOcr();
+  }
 
-      // 여러 장에 같은 사람이 있으면 하나만 (자동 선택을 우선)
-      const taken = new Set();
-      ["auto", "check"].forEach(status => {
-        ocrState.items.filter(it => it.status === status).forEach(it => {
-          if(taken.has(it.member) && !it.duplicate){ it.status = "dup"; return; }
-          if(!it.duplicate) taken.add(it.member);
-        });
+  /* 사진을 더 읽을 때마다 전체를 다시 훑어 중복을 가려낸다.
+     이미 사람이 손댄 항목(선택 해제 · 직접 고른 이름)은 그대로 둔다 */
+  function finalizeOcr(){
+    const items = ocrState.items || [];
+    // 중복 판정 전 상태를 기억해 두고, 매번 거기서부터 다시 계산한다
+    items.forEach(it => { if(it.baseStatus === undefined) it.baseStatus = it.status; });
+    items.forEach(it => { it.status = it.baseStatus; });
+
+    const taken = new Set();
+    ["auto", "check"].forEach(status => {
+      items.filter(it => it.status === status).forEach(it => {
+        if(taken.has(it.member) && !it.duplicate){ it.status = "dup"; return; }
+        if(!it.duplicate) taken.add(it.member);
       });
-      ocrState.items.forEach(it => {
+    });
+
+    items.forEach(it => {
+      if(it.include === undefined){          // 이번에 새로 읽은 것만 기본값을 넣는다
         it.include = true;
         it.choice = (it.status === "auto" || it.status === "check") ? it.member : "";
         it.remember = true;
-      });
-      ocrState.running = false;
-    }catch(err){
-      ocrState = { running: false, error: (err && err.message) || "사진을 읽지 못했습니다" };
-    }
-    renderOcr();
+      }
+    });
   }
 
   function renderOcrProgress(){
@@ -593,7 +629,8 @@
 
     if(ocrState.error){
       panel.appendChild(el("p", "ocr-msg error", ocrState.error));
-      return;
+      // 앞 사진에서 읽어 둔 결과가 있으면 지우지 않고 계속 보여 준다
+      if(!ocrState.items || !ocrState.items.length) return;
     }
     if(!ocrState.cells){
       panel.appendChild(el("p", "ocr-msg error", "이름 위치를 찾지 못했습니다. 'Lv. 숫자'가 보이는 공대 명단 화면인지 확인하세요."));
@@ -605,9 +642,16 @@
     const unknowns = ocrState.items.filter(it => it.status === "unknown");
     const dups = ocrState.items.filter(it => it.status === "dup");
 
+    const photos = ocrState.items.reduce((m, it) => Math.max(m, it.photo || 0), 0);
     panel.appendChild(el("p", "ocr-summary",
+      (photos > 1 ? "사진 " + photos + "장 · " : "") +
       "이름 " + ocrState.cells + "칸 읽음 · 자동 선택 " + autos.length + "명 · 확인 필요 " + checks.length + "명 · 못 찾음 " + unknowns.length + "칸" +
       (dups.length ? " · 중복 " + dups.length + "칸 제외" : "")));
+
+    if(form.picked.size){
+      panel.appendChild(el("p", "ocr-keep",
+        "이미 선택해 둔 참여자 " + form.picked.size + "명은 그대로 두고, 여기서 고른 사람이 더해집니다."));
+    }
 
     const refreshFoot = () => {
       const n = ocrChosen().size;
@@ -673,7 +717,7 @@
     rowGroup(unknowns, "못 찾음 · 필요하면 직접 고르세요", true);
 
     const foot = el("div", "ocr-foot");
-    const again = el("button", "btn sm", "다른 사진 읽기");
+    const again = el("button", "btn sm", "사진 더 넣기");
     again.type = "button";
     again.addEventListener("click", () => $("ocrFile").click());
     const apply = el("button", "btn primary sm");
@@ -797,12 +841,31 @@
     const total = pool.length;
     const box = $("barChart");
     box.textContent = "";
+
+    // 검색 상태 표시
+    const query = rateQuery.trim();
+    $("btnClearRate").hidden = !query;
+    const hint = $("rateHint");
+    const hits = query ? data.members.filter(n => nameMatches(n, query)) : [];
+    hint.textContent = query ? (hits.length ? hits.length + "명 · " + hits.join(", ") : "검색 결과가 없습니다") : "";
+    hint.classList.toggle("none", !!query && !hits.length);
     if(!total){ box.appendChild(el("p", "empty", "이 기준으로 기록된 공대가 아직 없습니다")); return; }
     if(!data.members.length){ box.appendChild(el("p", "empty", "등록된 클랜원이 없습니다")); return; }
 
-    data.members.map(name => Object.assign({ name }, statsOf(name, pool)))
-      .sort((a,b) => b.rate - a.rate || b.cnt - a.cnt || a.name.localeCompare(b.name))
-      .forEach((s, i) => {
+    /* 순위는 항상 전체 명단 기준으로 매긴 뒤에 검색어로 걸러낸다.
+       검색했을 때 "12. 짱구" 처럼 실제 등수가 보여야 의미가 있기 때문 */
+    const ranked = data.members.map(name => Object.assign({ name }, statsOf(name, pool)))
+      .sort((a,b) => b.rate - a.rate || b.cnt - a.cnt || a.name.localeCompare(b.name));
+    ranked.forEach((s, i) => { s.rank = i + 1; });
+
+    const q = rateQuery.trim();
+    const shown = q ? ranked.filter(s => nameMatches(s.name, q)) : ranked;
+    if(!shown.length){
+      box.appendChild(el("p", "empty", "'" + q + "' 와(과) 맞는 클랜원이 없습니다"));
+      return;
+    }
+
+    shown.forEach(s => {
       const row = el("div", "bar-line");
       row.title = s.name + " · " + s.cnt + " / " + s.total + "회" +
         (s.partial ? " (" + shortDate(s.since) + " 첫 참여 이후 기준)" : "");
@@ -810,7 +873,11 @@
       const fill = el("div", "bar-fill");
       fill.style.width = s.rate + "%";
       track.appendChild(fill);
-      row.append(el("span", "bar-name", (i+1) + ". " + s.name), track, el("span", "bar-pct", s.rate + "%"));
+      // 순위 숫자는 따로 감싼다 (좁은 화면에서는 CSS 로 숨기고 이름만 보여주려고)
+      const nameCell = el("span", "bar-name");
+      nameCell.appendChild(el("span", "bar-rank", s.rank + ". "));
+      nameCell.appendChild(document.createTextNode(s.name));
+      row.append(nameCell, track, el("span", "bar-pct", s.rate + "%"));
       box.appendChild(row);
     });
   }
@@ -1474,6 +1541,19 @@
     const b = e.target.closest("button"); if(!b) return;
     rateFilter = b.dataset.v; renderBars();
   });
+
+  // 참여율 닉네임 검색 : 검색한 사람만 남는다 (등수는 전체 기준 그대로)
+  function clearRateSearch(){
+    rateQuery = "";
+    $("rateSearch").value = "";
+    renderBars();
+  }
+  $("rateSearch").addEventListener("input", e => { rateQuery = e.target.value; renderBars(); });
+  $("rateSearch").addEventListener("keydown", e => {
+    if(e.isComposing) return;
+    if(e.key === "Escape"){ e.preventDefault(); clearRateSearch(); $("rateSearch").focus(); }
+  });
+  $("btnClearRate").addEventListener("click", () => { clearRateSearch(); $("rateSearch").focus(); });
 
   $("btnAddMember").addEventListener("click", addMembers);
   $("newName").addEventListener("keydown", e => {

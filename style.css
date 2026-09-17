@@ -289,6 +289,8 @@ footer{ text-align:center; color:var(--muted); font-size:12px; margin-top:20px; 
 /* ---------- 참여자 검색 ---------- */
 .pick-search{ display:flex; gap:6px; margin-bottom:6px; }
 .pick-search input{ flex:1; }
+.rate-search{ display:flex; gap:6px; margin-bottom:6px; }
+.rate-search input{ flex:1; min-width:0; }
 .pick-hint{ min-height:18px; margin-bottom:6px; font-size:12.5px; color:var(--accent); }
 .pick-hint.none{ color:var(--muted); }
 .pick.first{ box-shadow:0 0 0 2px var(--accent); border-color:var(--accent); color:var(--accent); }
@@ -310,6 +312,7 @@ footer{ text-align:center; color:var(--muted); font-size:12px; margin-top:20px; 
 .ocr-msg{ margin:0; font-size:13px; }
 .ocr-msg.error{ color:var(--danger); }
 .ocr-summary{ margin:0 0 12px; font-size:13px; color:var(--text); font-variant-numeric:tabular-nums; }
+.ocr-keep{ margin:0 0 10px; font-size:12.5px; color:var(--accent); }
 
 .ocr-group{ padding-top:10px; margin-top:10px; border-top:1px solid var(--line); }
 .ocr-group-title{ font-size:12.5px; font-weight:600; color:var(--muted); margin-bottom:8px; }
@@ -373,6 +376,13 @@ footer{ text-align:center; color:var(--muted); font-size:12px; margin-top:20px; 
   .file-bar #btnExportSite,
   .file-bar #btnExport,
   .file-bar #btnImport{ display:none; }
+
+  /* 일자별 참여 기록 : 인원수와 삭제 버튼은 숨긴다 (실수로 지우는 것도 막아 준다) */
+  .day-count{ display:none; }
+  .day-head .danger{ display:none; }
+
+  /* 참여율 : 순위 숫자 빼고 닉네임만 */
+  .bar-rank{ display:none; }
 }
 
 /* 지금 선택된 참여자 목록 (짱구, 짱아, 유리) */

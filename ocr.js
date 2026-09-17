@@ -65,14 +65,26 @@
   }
 
   /* ---------- 이미지 ---------- */
+  /* 사진 준비 : img.decode() 는 환경에 따라 영영 끝나지 않는 경우가 있어
+     (일부 내장 브라우저 · 웹뷰) load 이벤트를 기다리는 방식으로 읽는다 */
+  function waitImage(img){
+    return new Promise((resolve, reject) => {
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("사진을 열지 못했습니다. 다른 사진으로 다시 시도해 보세요."));
+    });
+  }
+
   async function toImage(src){
-    if(src instanceof HTMLImageElement){ if(!src.complete) await src.decode(); return src; }
+    if(src instanceof HTMLImageElement){
+      if(!src.complete) await waitImage(src);
+      return src;
+    }
     const url = URL.createObjectURL(src);
     try{
       const img = new Image();
+      const done = waitImage(img);
       img.src = url;
-      await img.decode();
-      return img;
+      return await done;
     }finally{
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
