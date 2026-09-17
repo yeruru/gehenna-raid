@@ -352,3 +352,14 @@ footer{ text-align:center; color:var(--muted); font-size:12px; margin-top:20px; 
   .ocr-row{ grid-template-columns:1fr; }
   .ocr-pick{ align-items:stretch; }
 }
+
+/* 새로 올라온 기록 알림 · 기록 파일을 못 읽었을 때 안내 */
+.site-notice{
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  margin:0 0 18px;
+  padding:11px 14px;
+  border:1px solid var(--accent); border-radius:10px;
+  background:var(--accent-soft); color:var(--accent);
+  font-size:13px; line-height:1.5;
+}
+.site-notice span{ flex:1 1 240px; }
