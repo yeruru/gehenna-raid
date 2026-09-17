@@ -363,3 +363,25 @@ footer{ text-align:center; color:var(--muted); font-size:12px; margin-top:20px; 
   font-size:13px; line-height:1.5;
 }
 .site-notice span{ flex:1 1 240px; }
+
+/* 휴대폰 : 백업 · 내보내기 같은 관리용 버튼은 숨긴다.
+   클랜원들은 보기만 하면 되고, 좁은 화면에서 줄바꿈되어 지저분해지기 때문.
+   단 '불러오기 전으로 되돌리기' 는 실수를 되돌리는 버튼이라 남겨 둔다 */
+@media (max-width:640px){
+  .file-bar .backup-state,
+  .file-bar #btnFolder,
+  .file-bar #btnExportSite,
+  .file-bar #btnExport,
+  .file-bar #btnImport{ display:none; }
+}
+
+/* 지금 선택된 참여자 목록 (짱구, 짱아, 유리) */
+.picked-list{
+  margin:8px 0 0;
+  padding:9px 11px;
+  border:1px solid var(--line); border-radius:8px;
+  background:var(--soft);
+  font-size:13px; line-height:1.6; color:var(--text);
+  word-break:keep-all; overflow-wrap:anywhere;
+  user-select:all;
+}
