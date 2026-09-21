@@ -1100,7 +1100,29 @@
       nameCell.appendChild(document.createTextNode(shortName(s.name)));
       row.append(nameCell, track, el("span", "bar-pct", s.rate + "%"));
       box.appendChild(row);
+
+      // 닉네임을 검색했을 때만 : 그 사람이 빠진 공대를 막대 아래에 보여 준다
+      if(q) box.appendChild(missedLine(s.name, pool));
     });
+  }
+
+  /* 빠진 공대 목록 (첫 참여한 공대부터 · 지금 고른 기준 전체/게헨나/마슈미드·에노크 안에서) */
+  function missedLine(name, pool){
+    const line = el("div", "bar-miss");
+    const first = pool.findIndex(s => s.attendees.includes(name));
+    if(first < 0){ line.textContent = "이 기준으로는 참여 기록이 없습니다"; return line; }
+    const missed = pool.slice(first).filter(s => !s.attendees.includes(name));
+    if(!missed.length){
+      line.classList.add("none");
+      line.textContent = "빠진 공대 없음";
+      return line;
+    }
+    line.appendChild(el("span", "bar-miss-label", "빠진 공대 " + missed.length + "회"));
+    missed.forEach(s => {
+      const text = shortDate(s.date) + (s.time ? " " + s.time : "") + (isBoss(s) ? " " + s.raid : "");
+      line.appendChild(el("span", "bar-miss-chip", text));
+    });
+    return line;
   }
 
   /* ---------- 일자별 기록 ---------- */

@@ -463,3 +463,21 @@ footer{ text-align:center; color:var(--muted); font-size:12px; margin-top:20px; 
 }
 .extract-acts{ display:flex; gap:8px; margin-top:14px; }
 .extract-acts .btn{ flex:1; }
+
+/* 참여율에서 닉네임을 검색했을 때 막대 아래에 나오는 '빠진 공대' 목록.
+   이름 칸 폭만큼 들여 써서 막대와 줄을 맞춘다 */
+.bar-miss{
+  display:flex; flex-wrap:wrap; align-items:center; gap:4px 6px;
+  margin:2px 0 10px 86px;
+  font-size:12px; color:var(--muted);
+}
+.bar-miss.none{ color:var(--accent); }
+.bar-miss-label{ font-weight:600; color:var(--danger); margin-right:2px; }
+.bar-miss-chip{
+  padding:2px 8px; border-radius:10px;
+  background:var(--danger-soft); color:var(--danger);
+  font-variant-numeric:tabular-nums; white-space:nowrap;
+}
+@media (max-width:640px){
+  .bar-miss{ margin-left:58px; }
+}
