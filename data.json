@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-09-22T10:16:40",
+  "updatedAt": "2026-09-22T16:07:45",
   "members": [
     "짱구",
     "훈이",
@@ -53,7 +53,10 @@
   ],
   "aliases": {
     "fury": "Fury",
-    "지붕": "지뽕"
+    "지붕": "지뽕",
+    "퓨리": "Fury",
+    "퍼팩트": "PERFECTBAEK",
+    "퍼펙트": "PERFECTBAEK"
   },
   "sessions": [
     {

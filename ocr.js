@@ -164,13 +164,20 @@
 
     // "Lv." (가끔 "Lv.104" 처럼 붙어서 읽힘) + 바로 오른쪽 숫자
     const lvs = words.filter(w => /^[LI1l|][vVyu][.,]?\d*$/.test(w.text) || /^Lv/i.test(w.text));
-    const cells = lvs.map(lv => {
+    let cells = lvs.map(lv => {
       const h = lv.y1 - lv.y0;
       const num = words.find(w => w !== lv && /^\d{1,3}$/.test(w.text) &&
         w.x0 >= lv.x1 - 2 && w.x0 - lv.x1 < h * 2 && Math.abs((w.y0 + w.y1) / 2 - (lv.y0 + lv.y1) / 2) < h);
       const x1 = num ? num.x1 : lv.x1;
       return { cx: (lv.x0 + x1) / 2, top: Math.min(lv.y0, num ? num.y0 : lv.y0), h: Math.max(6, Math.min(h, num ? num.y1 - num.y0 : h)) };
     });
+
+    // 다른 칸보다 눈에 띄게 작게 잡힌 건 진짜 'Lv.' 글자가 아니라 잘못 읽은 잡음이다 (높이가 중간값의 절반 미만)
+    if(cells.length > 2){
+      const heights = cells.map(c => c.h).sort((a, b) => a - b);
+      const medianH = heights[Math.floor(heights.length / 2)];
+      cells = cells.filter(c => c.h >= medianH * 0.6);
+    }
 
     // 같은 줄끼리 간격 → 칸 너비
     const gaps = [];
@@ -184,7 +191,10 @@
     gaps.sort((a, b) => a - b);
     const cellW = gaps.length ? gaps[Math.floor(gaps.length / 2)] : img.naturalWidth / 5;
 
-    // "Lv." 를 못 읽은 칸 채우기 : 같은 줄에서 양옆에 칸이 있는데 중간이 비어 있으면 추가
+    /* "Lv." 를 못 읽은 칸 채우기 : 같은 줄에서 실제 칸 사이에 하나가 비어 있으면 추가한다.
+       단, 정렬된 열 기준으로 바로 왼쪽 · 오른쪽에 실제 칸이 '둘 다' 있을 때만 채운다.
+       공대 한 조가 5명을 다 못 채운 경우(3명만 있는 등) 남는 빈 자리까지 사람으로 채워버리면
+       잡음(다른 아이콘 · 여백)을 이름 칸으로 잘못 인식하게 된다 */
     const rows = [];
     cells.slice().sort((a, b) => a.top - b.top).forEach(c => {
       const row = rows.find(r => Math.abs(r.top - c.top) < c.h);
@@ -195,15 +205,15 @@
       const col = cols.find(x => Math.abs(x - c.cx) < cellW / 3);
       if(col === undefined) cols.push(c.cx);
     });
+    cols.sort((a, b) => a - b);
     rows.forEach(r => {
       const xs = r.cells.map(c => c.cx);
-      const min = Math.min(...xs), max = Math.max(...xs);
-      cols.forEach(x => {
-        if(x > min + cellW / 2 && x < max - cellW / 2 && !xs.some(v => Math.abs(v - x) < cellW / 3)){
-          const others = cells.filter(c => Math.abs(c.cx - x) < cellW / 3);
-          const cx = others.reduce((s, c) => s + c.cx, 0) / others.length;
-          cells.push({ cx, top: r.top, h: r.h });
-        }
+      const has = x => x !== undefined && xs.some(v => Math.abs(v - x) < cellW / 3);
+      cols.forEach((x, i) => {
+        if(has(x) || !has(cols[i - 1]) || !has(cols[i + 1])) return;
+        const others = cells.filter(c => Math.abs(c.cx - x) < cellW / 3);
+        const cx = others.reduce((s, c) => s + c.cx, 0) / others.length;
+        cells.push({ cx, top: r.top, h: r.h });
       });
     });
 
@@ -247,6 +257,20 @@
     return dp[m][n];
   }
 
+  /* OCR이 작은 글씨 · 게임 특유의 글꼴에서 자주 헷갈리는 자모 : 된소리↔예사소리, 이중모음↔단모음.
+     (예: 뽕→봉/붕, 쵸파→초파, 뀨우→꾸우로 잘못 읽는 일이 흔함)
+     '자동 선택 / 확인 필요' 를 가르는 판정에만 쓰고, 화면에 보여 주는 글자 · 실제로 고르는 이름은
+     그대로 둔다 — 판정용 자모만 하나로 묶어서 비교한다 */
+  const FOLD = {
+    "ㄲ":"ㄱ", "ㄸ":"ㄷ", "ㅃ":"ㅂ", "ㅆ":"ㅅ", "ㅉ":"ㅈ",
+    "ㅑ":"ㅏ", "ㅕ":"ㅓ", "ㅛ":"ㅗ", "ㅠ":"ㅜ", "ㅖ":"ㅔ", "ㅒ":"ㅐ"
+  };
+  function foldJamo(j){
+    let out = "";
+    for(const ch of j) out += FOLD[ch] || ch;
+    return out;
+  }
+
   // 읽은 글자 → 비교할 후보 문자열들 (클랜 태그 · 잡음 제거)
   function readVariants(korText, engText, prefix){
     const out = new Set();
@@ -279,13 +303,13 @@
     });
     let best = null;
     variants.forEach(v => {
-      const vj = jamo(v);
+      const vf = foldJamo(jamo(v));
       targets.forEach(t => {
-        const tj = jamo(t.key);
-        const d = distance(vj, tj);
-        const ratio = d / Math.max(vj.length, tj.length);
+        const tf = foldJamo(jamo(t.key));
+        const d = distance(vf, tf);
+        const ratio = d / Math.max(vf.length, tf.length);
         if(!best || d < best.dist || (d === best.dist && ratio < best.ratio)){
-          best = { member: t.member, alias: t.alias || null, read: v, dist: d, ratio, len: tj.length };
+          best = { member: t.member, alias: t.alias || null, read: v, dist: d, ratio, len: tf.length };
         }
       });
     });

@@ -29,6 +29,7 @@
     <div class="tabs" role="tablist">
       <button type="button" role="tab" id="tabRate" data-view="rate" aria-controls="viewRate">참여율</button>
       <button type="button" role="tab" id="tabExtract" data-view="extract" aria-controls="viewExtract">명단 뽑기</button>
+      <button type="button" role="tab" id="tabCheck" data-view="check" aria-controls="viewCheck">공대확인</button>
       <button type="button" role="tab" id="tabRecord" data-view="record" aria-controls="viewRecord">공대 기록</button>
       <button type="button" role="tab" id="tabMembers" data-view="members" aria-controls="viewMembers">클랜원 관리</button>
     </div>
@@ -120,6 +121,25 @@
         <div class="member-grid" id="extractGrid"></div>
       </div>
 
+    </section>
+  </div>
+
+  <!-- ================= 공대확인 (잠금 없음 · 전체 공개) ================= -->
+  <div id="viewCheck" role="tabpanel" aria-labelledby="tabCheck" hidden>
+    <section aria-labelledby="checkTitle">
+      <div class="sec-head">
+        <h2 id="checkTitle">공대확인</h2>
+        <span class="sec-desc">여러 공대의 명단을 합쳐서 등록된 닉네임인지 한 번에 확인합니다</span>
+      </div>
+
+      <div id="checkRaids"></div>
+
+      <div class="check-toolbar">
+        <button type="button" class="btn ghost sm" id="btnCheckAddRaid">+ 공대 추가</button>
+        <button type="button" class="btn primary" id="btnCheckRun">확인하기</button>
+      </div>
+
+      <div id="checkResult"></div>
     </section>
   </div>
 
@@ -259,7 +279,7 @@
   try{ unlocked = localStorage.getItem(UNLOCK_KEY) === PASS_HASH; }catch(e){}
   const isLocked = v => LOCKED_VIEWS.indexOf(v) >= 0 && !unlocked;
 
-  const VIEWS = ["rate", "extract", "record", "members"];
+  const VIEWS = ["rate", "extract", "check", "record", "members"];
   // 주소 끝의 #rate · #record · #members 로 탭이 정해진다. 그냥 들어오면 참여율부터
   let view = VIEWS.indexOf((location.hash || "").slice(1)) >= 0 ? location.hash.slice(1) : "rate";
   let rateQuery = "";
@@ -516,6 +536,7 @@
       if(view === "record") renderForm();
       else if(view === "members") renderRoster();
       else if(view === "extract") renderExtract();
+      else if(view === "check") renderCheck();
       else renderBars();
     });
   });
@@ -972,6 +993,203 @@
     renderExtractResult();
   }
 
+  /* ---------- 공대확인 (잠금 없음) ----------
+     여러 공대의 명단(스크린샷에서 읽은 원본 글자 등)을 붙여넣어 하나로 합치고,
+     클랜원 명단(과 게임 닉네임)에 정확히 있는지 확인해 준다.
+     명단 뽑기와 달리 기존 '명단 뽑기' 기능은 건드리지 않고 별도로 둔다. */
+  let checkRaids = [{ id: 1, text: "" }, { id: 2, text: "" }];
+  let checkNextId = 3;
+  let checkResult = null;   // null = 아직 확인 전
+
+  // 공백(스페이스 · 탭 · 줄바꿈) 또는 쉼표로 나눈다 · 빈 칸은 버린다
+  function splitNick(text){
+    return String(text || "").split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+  }
+
+  /* 정확히 일치하는 경우만 '정상 등록' 으로 친다 (초성 · 부분 일치 없음).
+     클랜원 이름 자체거나, 등록해 둔 게임 닉네임(별칭)이면 인정하고
+     화면에는 명단에 있는 진짜 이름으로 보여 준다 */
+  function exactMemberOrAlias(raw){
+    const lower = String(raw).trim().toLowerCase();
+    if(!lower) return null;
+    const exact = data.members.find(m => m.toLowerCase() === lower);
+    if(exact) return exact;
+    const alias = data.aliases[lower];
+    if(alias && data.members.includes(alias)) return alias;
+    return null;
+  }
+
+  /* 등록 명단 중 자모 기준으로 가장 가까운 이름을 찾는다 (오타 제안용).
+     ocr.js 의 자모 비교 함수를 그대로 재사용한다. 뚜렷하게 비슷하지 않으면 제안하지 않는다 */
+  function suggestSimilar(raw){
+    if(!window.RaidOCR) return null;
+    const rawJ = RaidOCR._jamo(String(raw).trim().toLowerCase());
+    if(!rawJ) return null;
+    let best = null;
+    data.members.forEach(m => {
+      const mj = RaidOCR._jamo(m.toLowerCase());
+      const d = RaidOCR._distance(rawJ, mj);
+      const allowed = mj.length <= 3 ? 1 : Math.max(1, Math.floor(mj.length * 0.3));
+      if(d > 0 && d <= allowed && (!best || d < best.dist)) best = { name: m, dist: d };
+    });
+    return best ? best.name : null;
+  }
+
+  function checkRun(){
+    const lists = checkRaids.map(r => splitNick(r.text));
+    const filled = lists.filter(l => l.length);
+    if(filled.length < 2){
+      checkResult = { error: true };
+      renderCheckResult();
+      return;
+    }
+
+    // 여러 공대를 합쳐서 처음 나온 순서대로 중복 제거 (대소문자는 구분하지 않음)
+    const order = [];
+    const seenLower = new Set();
+    lists.forEach(list => list.forEach(n => {
+      const k = n.toLowerCase();
+      if(!seenLower.has(k)){ seenLower.add(k); order.push(n); }
+    }));
+
+    // 등록 명단과 대조 · 같은 사람을 가리키는 이름(별칭 포함)이 겹치면 한 번만
+    const seenKey = new Set();
+    const known = [], unknown = [];
+    order.forEach(raw => {
+      const canon = exactMemberOrAlias(raw);
+      const key = canon ? ("k:" + canon) : ("u:" + raw.toLowerCase());
+      if(seenKey.has(key)) return;
+      seenKey.add(key);
+      if(canon) known.push(canon);
+      else{
+        const suggest = suggestSimilar(raw);
+        // 비슷한 이름을 찾았으면 미리 골라 둔다 (명단 뽑기의 '확인 필요' 항목과 같은 방식) · 셀렉트에서 바로 바꾸거나 '선택 안 함' 으로 되돌릴 수 있다
+        unknown.push({ raw, suggest, choice: suggest || "" });
+      }
+    });
+
+    checkResult = { error: false, raidCount: filled.length, known, unknown };
+    renderCheckResult();
+  }
+
+  function renderCheckRaids(){
+    const box = $("checkRaids");
+    box.textContent = "";
+    if(!checkRaids.length){
+      box.appendChild(el("p", "empty", "공대를 추가해 주세요"));
+      return;
+    }
+    checkRaids.forEach((r, i) => {
+      const card = el("div", "check-raid");
+      const head = el("div", "check-raid-head");
+      const title = el("span", "check-raid-title", "공대 ");
+      title.appendChild(el("b", "", String(i + 1)));
+      head.appendChild(title);
+      const del = el("button", "btn ghost sm", "삭제");
+      del.type = "button";
+      del.title = "이 공대 입력칸 삭제";
+      del.addEventListener("click", () => {
+        checkRaids = checkRaids.filter(x => x.id !== r.id);
+        renderCheckRaids();
+      });
+      head.appendChild(del);
+      card.appendChild(head);
+
+      const ta = document.createElement("textarea");
+      ta.className = "check-raid-input";
+      ta.placeholder = "닉네임을 띄어쓰기로 구분해서 입력 (예: 짱구 훈이 법)";
+      ta.value = r.text;
+      ta.addEventListener("input", () => { r.text = ta.value; });
+      card.appendChild(ta);
+
+      box.appendChild(card);
+    });
+  }
+
+  function renderCheckResult(){
+    const box = $("checkResult");
+    box.textContent = "";
+    if(!checkResult) return;
+
+    if(checkResult.error){
+      box.appendChild(el("p", "ocr-msg error", "최소 2개의 공대를 입력해주세요."));
+      return;
+    }
+
+    const { known, unknown } = checkResult;
+
+    /* '확인 필요' 중 셀렉트로 직접 골라 둔 사람은 정상 등록 쪽으로 합쳐서 계산한다.
+       행 자체는 계속 보여 줘서 언제든 '선택 안 함' 으로 되돌릴 수 있게 한다 */
+    const resolvedKnown = [...known];
+    const resolvedSeen = new Set(known);
+    let stillUnknownCount = 0;
+    unknown.forEach(u => {
+      if(u.choice && data.members.includes(u.choice)){
+        if(!resolvedSeen.has(u.choice)){ resolvedSeen.add(u.choice); resolvedKnown.push(u.choice); }
+      }else{
+        stillUnknownCount++;
+      }
+    });
+    /* '전체 참여자' 에는 확인된 사람만 넣는다. 확인 필요 상태로 남아 있는 이름은
+       실제로 누구인지 정해지지 않았으므로 최종 명단에서는 뺀다 (아래 행에서 안내) */
+    const allNames = resolvedKnown;
+    const total = allNames.length;
+
+    const summary = el("div", "check-summary");
+    const stat = el("div", "check-stat");
+    stat.appendChild(el("span", "check-stat-label", "전체 참여자"));
+    stat.appendChild(el("span", "check-stat-count", total + "명"));
+    summary.appendChild(stat);
+    summary.appendChild(el("div", "check-names", total ? allNames.join(", ")
+      : (unknown.length ? "확인된 사람이 아직 없습니다" : "입력된 닉네임이 없습니다")));
+    if(total){
+      const copy = el("button", "btn sm", "복사");
+      copy.type = "button";
+      copy.addEventListener("click", async () => {
+        const ok = await copyText(allNames.join(", "));
+        copy.textContent = ok ? "복사됨" : "실패";
+        toast(ok ? total + "명 복사됨" : "복사하지 못했습니다. 직접 긁어서 복사해 주세요.");
+        setTimeout(() => { copy.textContent = "복사"; }, 1600);
+      });
+      summary.appendChild(copy);
+    }
+    box.appendChild(summary);
+
+    const okGroup = el("div", "check-group ok");
+    const okTitle = el("div", "check-group-title", "정상 등록 ");
+    okTitle.appendChild(el("b", "", resolvedKnown.length + "명"));
+    okGroup.appendChild(okTitle);
+    okGroup.appendChild(el("div", "check-names", resolvedKnown.length ? resolvedKnown.join(", ") : "없음"));
+    box.appendChild(okGroup);
+
+    const warnGroup = el("div", "check-group" + (stillUnknownCount ? " warn" : ""));
+    const warnTitle = el("div", "check-group-title", (stillUnknownCount ? "⚠️ " : "") + "확인 필요 ");
+    warnTitle.appendChild(el("b", "", stillUnknownCount + "명"));
+    warnGroup.appendChild(warnTitle);
+    if(unknown.length){
+      warnGroup.appendChild(el("p", "check-warn-desc", "등록된 닉네임과 일치하지 않는 이름입니다. 맞는 클랜원을 고르면 정상 등록으로 옮겨집니다."));
+      const list = el("div", "check-warn-list");
+      unknown.forEach(u => {
+        const row = el("div", "check-warn-row" + (u.choice ? " resolved" : ""));
+        row.appendChild(el("span", "check-warn-name", u.raw));
+        if(u.suggest && !u.choice) row.appendChild(el("span", "check-warn-suggest", "비슷한 이름: " + u.suggest));
+        row.appendChild(memberSelect(u, renderCheckResult));
+        row.appendChild(el("span", u.choice ? "check-warn-resolved" : "check-warn-excluded",
+          u.choice ? "→ 정상 등록으로 처리" : "→ 전체 참여자에서 빠짐"));
+        list.appendChild(row);
+      });
+      warnGroup.appendChild(list);
+    }else{
+      warnGroup.appendChild(el("p", "check-warn-desc", "모두 등록된 닉네임입니다."));
+    }
+    box.appendChild(warnGroup);
+  }
+
+  function renderCheck(){
+    renderCheckRaids();
+    renderCheckResult();
+  }
+
   function renderFormMeta(){
     const draft = { date: form.date, time: form.time, raid: form.raid };
     $("pickCount").textContent = form.picked.size;
@@ -1410,6 +1628,7 @@
     renderDays();
     renderRoster();
     renderExtract();
+    renderCheck();
   }
 
   /* ---------- JSON 내보내기 · 불러오기 ---------- */
@@ -1770,6 +1989,13 @@
     $("extractSearch").focus();
   });
   $("btnExtractNone").addEventListener("click", () => { extractPicked = new Set(); renderExtract(); });
+
+  // 공대확인
+  $("btnCheckAddRaid").addEventListener("click", () => {
+    checkRaids.push({ id: checkNextId++, text: "" });
+    renderCheckRaids();
+  });
+  $("btnCheckRun").addEventListener("click", checkRun);
   $("extractTimeSeg").addEventListener("click", e => {
     const b = e.target.closest("button"); if(!b) return;
     extractTime = b.dataset.v;
