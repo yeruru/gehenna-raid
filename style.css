@@ -245,18 +245,6 @@ input:focus{ border-color:var(--accent); outline:none; }
 .roster .rename{ display:flex; gap:4px; }
 .roster .rename input{ height:32px; width:100%; }
 
-.former{ margin-top:16px; padding-top:14px; border-top:1px dashed var(--line); }
-.former-title{ font-size:13px; color:var(--muted); margin:0 0 8px; font-weight:600; }
-.former-list{ display:flex; flex-wrap:wrap; gap:6px; }
-.former-chip{
-  display:inline-flex; align-items:center; gap:6px;
-  height:32px; padding:0 4px 0 12px; border-radius:16px;
-  background:var(--soft); border:1px solid var(--line); font-size:13px; color:var(--muted);
-}
-.former-chip button{
-  height:24px; padding:0 8px; border-radius:12px; border:0;
-  background:var(--accent-soft); color:var(--accent); font-size:12px; font-weight:600;
-}
 
 .toast{
   position:fixed; left:50%; bottom:24px;

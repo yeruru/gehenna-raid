@@ -220,10 +220,6 @@
       </div>
       <ul class="roster" id="roster"></ul>
 
-      <div class="former" id="formerWrap" hidden>
-        <p class="former-title">뺀 클랜원 · 지난 공대 기록은 남아 있어서 다시 넣으면 참여율이 복구됩니다</p>
-        <div class="former-list" id="formerList"></div>
-      </div>
     </section>
   </div>
 
@@ -1259,14 +1255,6 @@
     renderAll();
   }
 
-  function restoreMember(name){
-    if(data.members.includes(name)) return;
-    data.members.push(name);
-    persist();
-    toast(name + " 님을 다시 넣었습니다");
-    renderAll();
-  }
-
   function addAlias(name, value){
     const key = value.trim().replace(/^we(?=[A-Za-z가-힣])/i, "").toLowerCase();
     if(!key){ aliasEditing = null; renderRoster(); return; }
@@ -1412,20 +1400,6 @@
 
       li.append(who, rate, acts);
       ul.appendChild(li);
-    });
-
-    // 명단에서 뺐지만 지난 공대 기록에 남아 있는 이름
-    const former = [...new Set(data.sessions.flatMap(s => s.attendees))].filter(n => !data.members.includes(n));
-    $("formerWrap").hidden = !former.length;
-    const fl = $("formerList");
-    fl.textContent = "";
-    former.forEach(n => {
-      const chip = el("span", "former-chip", n);
-      const back = el("button", "", "다시 넣기");
-      back.type = "button";
-      back.addEventListener("click", () => restoreMember(n));
-      chip.appendChild(back);
-      fl.appendChild(chip);
     });
   }
 
