@@ -163,6 +163,8 @@ input:focus{ border-color:var(--accent); outline:none; }
 
 /* ---------- 참여율 ---------- */
 .filter{ display:inline-flex; gap:4px; flex-wrap:wrap; }
+.season-filter{ margin:10px 0 10px; }
+#rateSeasonDesc{ margin-bottom:14px; }
 .filter button{
   height:28px; padding:0 10px; border-radius:14px;
   background:none; border:1px solid var(--line); font-size:12.5px; color:var(--muted);

@@ -68,6 +68,11 @@
           <button type="button" data-v="boss">마슈미드 · 에노크</button>
         </div>
       </div>
+      <div class="filter season-filter" id="rateSeasonTabs" role="group" aria-label="공대 기수">
+        <button type="button" data-v="s1">게헨나 1기</button>
+        <button type="button" data-v="s2">게헨나 2기</button>
+      </div>
+      <div class="sec-desc" id="rateSeasonDesc"></div>
       <div class="rate-search">
         <input type="search" id="rateSearch" placeholder="닉네임 검색 · 초성도 됩니다 (예: ㅉㄱ)" autocomplete="off" aria-label="참여율 닉네임 검색">
         <button type="button" class="btn sm" id="btnClearRate" hidden>전체 보기</button>
@@ -263,6 +268,12 @@
   let data;   // 아래 함수들이 모두 선언된 뒤 맨 끝에서 load()
   const form = { date: todayStr(), time: "1시", raid: "게헨나", picked: new Set(), editKey: null };
   let rateFilter = "all";
+  /* 게헨나 기수 : 9월 19일까지가 1기, 9월 20일부터가 2기.
+     세션마다 표시를 따로 저장하지 않고 날짜로만 가른다 — 그래야 2기 기록을
+     새로 넣을 때 아무것도 더 신경 쓸 필요가 없다 */
+  const SEASON2_START = "2026-09-20";
+  const isSeason2 = s => s.date >= SEASON2_START;
+  let rateSeason = null;   // 처음엔 비워 두고, 데이터가 있으면 가장 최근 공대가 속한 기수로 자동 선택
   /* ---------- 공대 기록 · 클랜원 관리 잠금 ----------
      주의 : 서버 없는 정적 페이지라 마음먹고 파고들면 누구나 풀 수 있다.
      진짜 보안이 아니라, 클랜원들이 실수로 기록을 건드리는 것을 막는 용도다.
@@ -1269,8 +1280,24 @@
   }
 
   function renderBars(){
+    // 기수 기본값 : 아직 안 골랐으면 가장 최근 공대가 속한 기수를 보여 준다
+    if(rateSeason === null){
+      const last = data.sessions[data.sessions.length - 1];
+      rateSeason = (last && isSeason2(last)) ? "s2" : "s1";
+    }
+    setPressed("rateSeasonTabs", rateSeason);
+    const seasonSessions = data.sessions.filter(s => rateSeason === "s2" ? isSeason2(s) : !isSeason2(s));
+    const seasonDesc = $("rateSeasonDesc");
+    if(!seasonSessions.length){
+      seasonDesc.textContent = (rateSeason === "s2" ? "게헨나 2기" : "게헨나 1기") + " · 아직 기록 없음";
+    }else{
+      const first = shortDate(seasonSessions[0].date), lastDate = shortDate(seasonSessions[seasonSessions.length - 1].date);
+      seasonDesc.textContent = (rateSeason === "s2" ? "게헨나 2기" : "게헨나 1기") + " · " +
+        (first === lastDate ? first : first + " ~ " + lastDate) + (rateSeason === "s1" ? " (종료)" : "");
+    }
+
     setPressed("rateFilter", rateFilter);
-    const pool = data.sessions.filter(s => rateFilter === "all" ? true : rateFilter === "boss" ? isBoss(s) : !isBoss(s));
+    const pool = seasonSessions.filter(s => rateFilter === "all" ? true : rateFilter === "boss" ? isBoss(s) : !isBoss(s));
     const total = pool.length;
     const box = $("barChart");
     box.textContent = "";
@@ -2026,6 +2053,10 @@
   $("rateFilter").addEventListener("click", e => {
     const b = e.target.closest("button"); if(!b) return;
     rateFilter = b.dataset.v; renderBars();
+  });
+  $("rateSeasonTabs").addEventListener("click", e => {
+    const b = e.target.closest("button"); if(!b) return;
+    rateSeason = b.dataset.v; renderBars();
   });
 
   // 참여율 닉네임 검색 : 검색한 사람만 남는다 (등수는 전체 기준 그대로)
