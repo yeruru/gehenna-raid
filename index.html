@@ -68,10 +68,7 @@
           <button type="button" data-v="boss">마슈미드 · 에노크</button>
         </div>
       </div>
-      <div class="filter season-filter" id="rateSeasonTabs" role="group" aria-label="공대 기수">
-        <button type="button" data-v="s1">게헨나 1기</button>
-        <button type="button" data-v="s2">게헨나 2기</button>
-      </div>
+      <div class="filter season-filter" id="rateSeasonTabs" role="group" aria-label="참여율 기간"></div>
       <div class="sec-desc" id="rateSeasonDesc"></div>
       <div class="rate-search">
         <input type="search" id="rateSearch" placeholder="닉네임 검색 · 초성도 됩니다 (예: ㅉㄱ)" autocomplete="off" aria-label="참여율 닉네임 검색">
@@ -268,12 +265,32 @@
   let data;   // 아래 함수들이 모두 선언된 뒤 맨 끝에서 load()
   const form = { date: todayStr(), time: "1시", raid: "게헨나", picked: new Set(), editKey: null };
   let rateFilter = "all";
-  /* 게헨나 기수 : 9월 19일까지가 1기, 9월 20일부터가 2기.
-     세션마다 표시를 따로 저장하지 않고 날짜로만 가른다 — 그래야 2기 기록을
-     새로 넣을 때 아무것도 더 신경 쓸 필요가 없다 */
-  const SEASON2_START = "2026-09-20";
-  const isSeason2 = s => s.date >= SEASON2_START;
-  let rateSeason = null;   // 처음엔 비워 두고, 데이터가 있으면 가장 최근 공대가 속한 기수로 자동 선택
+  /* 참여율 기간 : 9.20~9.29 가 첫 구간(10일 · 1기 마감 다음날부터 첫 수요일 리셋 전까지)이고,
+     그 다음부터는 수요일마다 2주(14일)씩 끊는다 (9.30, 10.14, 10.28, ... 매 2주 수요일 리셋).
+     첫 구간만 날짜를 그대로 박아 두고, 그 뒤로는 자동으로 2주씩 이어서 만든다
+     (매번 코드를 더 손댈 필요 없이 시간이 지나면 새 구간이 저절로 생긴다) */
+  const RATE_PERIODS = [
+    { start: "2026-09-20", end: "2026-09-29" },
+  ];
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const PERIOD_LEN_MS = 14 * DAY_MS;
+  const toISO = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  function periodAt(i){
+    if(i < RATE_PERIODS.length) return RATE_PERIODS[i];
+    const lastEnd = new Date(RATE_PERIODS[RATE_PERIODS.length - 1].end + "T00:00:00");
+    const start = new Date(lastEnd.getTime() + DAY_MS + (i - RATE_PERIODS.length) * PERIOD_LEN_MS);
+    const end = new Date(start.getTime() + PERIOD_LEN_MS - DAY_MS);
+    return { start: toISO(start), end: toISO(end) };
+  }
+  // 날짜가 몇 번째 구간에 속하는지 (구간 시작 전 날짜는 없다고 보고 0번째로 묶는다)
+  function periodIndexOf(dateStr){
+    if(dateStr < RATE_PERIODS[0].start) return 0;
+    for(let i = 0; ; i++){
+      const p = periodAt(i);
+      if(dateStr <= p.end) return i;
+    }
+  }
+  let rateSeason = null;   // "all" 또는 구간 번호(문자열) · 처음엔 비워 두고 자동으로 고른다
   /* ---------- 공대 기록 · 클랜원 관리 잠금 ----------
      주의 : 서버 없는 정적 페이지라 마음먹고 파고들면 누구나 풀 수 있다.
      진짜 보안이 아니라, 클랜원들이 실수로 기록을 건드리는 것을 막는 용도다.
@@ -1280,20 +1297,43 @@
   }
 
   function renderBars(){
-    // 기수 기본값 : 아직 안 골랐으면 가장 최근 공대가 속한 기수를 보여 준다
-    if(rateSeason === null){
-      const last = data.sessions[data.sessions.length - 1];
-      rateSeason = (last && isSeason2(last)) ? "s2" : "s1";
+    const todayIdx = periodIndexOf(todayStr());
+    const lastSessionIdx = data.sessions.length ? periodIndexOf(data.sessions[data.sessions.length - 1].date) : -1;
+    const maxIdx = Math.max(todayIdx, lastSessionIdx);   // 오늘이 속한 구간까지는 항상 보여 준다
+
+    // 기본값 : 아직 안 골랐으면 가장 최근 공대가 속한 구간(없으면 오늘이 속한 구간)을 보여 준다
+    if(rateSeason === null) rateSeason = String(lastSessionIdx >= 0 ? lastSessionIdx : todayIdx);
+
+    // 기간 버튼을 다시 그린다 ('전체' + 0번 구간부터 지금까지)
+    const tabs = $("rateSeasonTabs");
+    tabs.textContent = "";
+    const allBtn = el("button", "", "전체");
+    allBtn.type = "button";
+    allBtn.dataset.v = "all";
+    tabs.appendChild(allBtn);
+    for(let i = 0; i <= maxIdx; i++){
+      const p = periodAt(i);
+      const b = el("button", "", shortDate(p.start) + "~" + shortDate(p.end));
+      b.type = "button";
+      b.dataset.v = String(i);
+      tabs.appendChild(b);
     }
     setPressed("rateSeasonTabs", rateSeason);
-    const seasonSessions = data.sessions.filter(s => rateSeason === "s2" ? isSeason2(s) : !isSeason2(s));
+
+    const seasonSessions = rateSeason === "all" ? data.sessions
+      : data.sessions.filter(s => periodIndexOf(s.date) === Number(rateSeason));
     const seasonDesc = $("rateSeasonDesc");
-    if(!seasonSessions.length){
-      seasonDesc.textContent = (rateSeason === "s2" ? "게헨나 2기" : "게헨나 1기") + " · 아직 기록 없음";
+    if(rateSeason === "all"){
+      seasonDesc.textContent = seasonSessions.length
+        ? "전체 기간 · " + shortDate(seasonSessions[0].date) + " ~ " + shortDate(seasonSessions[seasonSessions.length - 1].date)
+        : "전체 기간 · 아직 기록 없음";
     }else{
-      const first = shortDate(seasonSessions[0].date), lastDate = shortDate(seasonSessions[seasonSessions.length - 1].date);
-      seasonDesc.textContent = (rateSeason === "s2" ? "게헨나 2기" : "게헨나 1기") + " · " +
-        (first === lastDate ? first : first + " ~ " + lastDate) + (rateSeason === "s1" ? " (종료)" : "");
+      const p = periodAt(Number(rateSeason));
+      const label = shortDate(p.start) + " ~ " + shortDate(p.end);
+      const current = Number(rateSeason) === todayIdx ? " (진행중)" : "";
+      seasonDesc.textContent = seasonSessions.length
+        ? label + current + " · 공대 " + seasonSessions.length + "회"
+        : label + current + " · 아직 기록 없음";
     }
 
     setPressed("rateFilter", rateFilter);
@@ -1330,7 +1370,7 @@
       row.title = s.name + " · " + s.cnt + " / " + s.total + "회" +
         (s.partial ? " (" + shortDate(s.since) + " 첫 참여 이후 기준)" : "");
       const track = el("div", "bar-track");
-      const fill = el("div", "bar-fill");
+      const fill = el("div", "bar-fill" + (s.rate < 50 ? " low" : ""));   // 50% 미만은 핑크색으로 눈에 띄게
       fill.style.width = s.rate + "%";
       track.appendChild(fill);
       /* 이름은 앞 두 글자만 보여 주고, 전체 이름은 마우스를 올렸을 때 뜨게 한다.

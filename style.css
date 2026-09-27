@@ -177,6 +177,7 @@ input:focus{ border-color:var(--accent); outline:none; }
 .bar-name{ color:var(--muted); font-size:12px; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .bar-track{ background:var(--bar-track); border-radius:4px; height:16px; overflow:hidden; }
 .bar-fill{ height:100%; background:linear-gradient(90deg,var(--accent-fill),var(--accent)); transition:width .3s; }
+.bar-fill.low{ background:linear-gradient(90deg,#f9a8d4,#ec4899); }   /* 참여율 50% 미만 */
 .bar-pct{ font-size:12px; font-variant-numeric:tabular-nums; }
 .empty{ color:var(--muted); font-size:13px; text-align:center; padding:20px 0; margin:0; }
 
