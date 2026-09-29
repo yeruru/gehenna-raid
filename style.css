@@ -519,3 +519,18 @@ footer{ text-align:center; color:var(--muted); font-size:12px; margin-top:20px; 
 .check-warn-row .ocr-select{ margin-left:auto; }
 .check-warn-resolved{ font-size:12px; font-weight:600; color:var(--accent); white-space:nowrap; }
 .check-warn-excluded{ font-size:12px; font-weight:600; color:var(--warn); white-space:nowrap; }
+
+/* ---------- 여러 공대 한꺼번에 입력 ---------- */
+.bulk-input{ min-height:160px; margin-bottom:10px; }
+.bulk-head{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px; cursor:pointer; }
+.bulk-head input{ width:16px; height:16px; margin:0; accent-color:var(--accent); }
+.bulk-badge{ font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; background:var(--bar-track); color:var(--muted); }
+.bulk-badge.new{ background:var(--accent-soft); color:var(--accent); }
+.bulk-badge.changed{ background:var(--warn-soft); color:var(--warn); }
+.bulk-item.off{ opacity:.6; }
+.bulk-diff{ margin-top:8px; font-size:12.5px; line-height:1.6; }
+.bulk-add{ color:var(--accent); }
+.bulk-del{ color:var(--danger); }
+.bulk-unknown{ margin-top:8px; border-top:1px dashed var(--line); }
+.bulk-stray{ margin-bottom:10px; }
+.bulk-foot{ margin-top:6px; }
